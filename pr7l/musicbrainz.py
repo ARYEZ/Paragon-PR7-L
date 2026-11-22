@@ -83,6 +83,13 @@ def _urllib_fetch(url: str, headers: dict) -> tuple[int, bytes]:
 class Client:
     """`fetch(url, headers) -> (status, body)` is replaceable, so tests can answer with recorded responses."""
 
+    NAME = "MusicBrainz"            # what the shared dialog (musicbrainz_dialog.py) calls things, per source
+    COVER_NAME = "COVER ART ARCHIVE"
+    COVER_SIZES = COVER_SIZES
+    RELEASE_FIELDS = [("Album", "ALBUM"), ("Album artist", "ALBUMARTIST"), ("Year", "YEAR"), ("Genre", "GENRE"),
+                      ("Label", "LABEL"), ("Catalog #", "CATALOGNUMBER"), ("Type", "RELEASETYPE")]
+    ID_HINT = "Album, or a MusicBrainz release ID / link"
+
     def __init__(self, fetch=None, pause: float = 1.0):
         self.fetch = fetch or _urllib_fetch
         self.pause = pause

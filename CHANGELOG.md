@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.0
+
+- **Discogs** (Tag Sources > Discogs), in the same dialog as MusicBrainz: search by artist and album (or paste a
+  release link / `[r12345]` / the number), pick the release, line the tracks up, OK. Writes ALBUM, ALBUMARTIST,
+  ARTIST (with Discogs' name variations and joins, without its " (2)" suffixes), TITLE, TRACK, DISCNUMBER (discs from
+  positions like 2-5; vinyl sides stay one disc), YEAR, GENRE, STYLE, LABEL, CATALOGNUMBER, BARCODE, COMPOSER
+  (Written-By), MEDIA, RELEASECOUNTRY, DISCOGS_RELEASE_ID and the primary image as the cover. Headings are skipped;
+  a suite gives its parts.
+- Searching Discogs needs your free personal token: PR7-L asks for it once and keeps it in its settings
+  (Options > Discogs to change it). Releases opened by link work without one.
+
 ## 0.5.0
 
 - **Filter** (View > Filter, F3), as in Mp3tag: a bar above the list; the list shows only matching files, and

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QGridLayout,
-                               QGroupBox, QHBoxLayout, QHeaderView, QInputDialog, QLabel, QPushButton, QSpinBox,
+                               QGroupBox, QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit, QPushButton, QSpinBox,
                                QTableWidget, QTableWidgetItem, QVBoxLayout)
 
 from . import settings
@@ -104,7 +104,7 @@ class OptionsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Options")
-        self.resize(640, 680)
+        self.resize(660, 760)
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 16)
         root.addWidget(Header("OPTIONS"))
@@ -159,6 +159,16 @@ class OptionsDialog(QDialog):
         cl.addWidget(self.cache_info, 1, 0)
         cl.addWidget(clear, 1, 1)
         body.addWidget(cache)
+        dg = QGroupBox("DISCOGS")
+        dl2 = QGridLayout(dg)
+        lab = QLabel("PERSONAL TOKEN")
+        lab.setProperty("role", "field")
+        self.discogs_token = QLineEdit(settings.get("discogs_token", ""))
+        self.discogs_token.setEchoMode(QLineEdit.Password)
+        self.discogs_token.setPlaceholderText("discogs.com > Settings > Developers > Generate new token")
+        dl2.addWidget(lab, 0, 0)
+        dl2.addWidget(self.discogs_token, 0, 1)
+        body.addWidget(dg)
         f = QGroupBox("FINISH")
         fl = QHBoxLayout(f)
         self.finish = QComboBox()
@@ -179,3 +189,4 @@ class OptionsDialog(QDialog):
         settings.set("cover_max_side", self.max_side.value())
         settings.set("finish", self.finish.currentText().lower())
         settings.set("use_cache", self.use_cache.isChecked())
+        settings.set("discogs_token", self.discogs_token.text().strip())

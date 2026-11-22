@@ -25,6 +25,7 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
           PR7L_LIVE: "1"
+          DISCOGS_TOKEN: ${{ secrets.DISCOGS_TOKEN }}  # optional: without it the live Discogs test is skipped
         run: python -m pytest -q -rs
       - name: Build PR7-L.exe
         run: pyinstaller --noconfirm pr7l.spec

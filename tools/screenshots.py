@@ -128,3 +128,19 @@ w.apply_filter(w.filter_bar.text())
 app.processEvents()
 w.grab().save(str(out / "filter.png"))
 print("ok")
+
+from test_discogs import Recorded as _DiscogsRecorded  # noqa: E402
+from pr7l import discogs as _discogs  # noqa: E402
+w.toggle_filter()
+dc = _discogs.Client("token", fetch=_DiscogsRecorded(), pause=0)
+if cover:
+    dc.fetch.routes["i.discogs.com/front.jpeg"] = (200, cover)
+dd = MusicBrainzDialog(w.model.rows[:6], dc, w)
+dd.sync = True
+dd.artist.setText("Paragon")
+dd.album.setText("ELSEWORLD")
+dd.search()
+dd.show()
+app.processEvents()
+dd.grab().save(str(out / "discogs.png"))
+print("ok")

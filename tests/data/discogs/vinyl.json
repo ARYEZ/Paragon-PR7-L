@@ -1,0 +1,63 @@
+{
+ "id": 27182818,
+ "year": 2019,
+ "title": "Elseworld",
+ "artists": [
+  {
+   "name": "Various",
+   "anv": "",
+   "join": ""
+  }
+ ],
+ "labels": [
+  {
+   "name": "Nuclear Blast",
+   "catno": "NB 1234"
+  }
+ ],
+ "formats": [
+  {
+   "name": "Vinyl",
+   "qty": "1"
+  }
+ ],
+ "country": "UK",
+ "released": "2019-03-08",
+ "genres": [
+  "Rock"
+ ],
+ "styles": [],
+ "tracklist": [
+  {
+   "position": "A1",
+   "type_": "track",
+   "title": "One",
+   "duration": "3:00",
+   "artists": [
+    {
+     "name": "Band A",
+     "anv": "",
+     "join": ","
+    },
+    {
+     "name": "Band B",
+     "anv": "",
+     "join": ""
+    }
+   ]
+  },
+  {
+   "position": "A2",
+   "type_": "track",
+   "title": "Two",
+   "duration": "3:10"
+  },
+  {
+   "position": "B1",
+   "type_": "track",
+   "title": "Three",
+   "duration": "4:00"
+  }
+ ],
+ "images": []
+}

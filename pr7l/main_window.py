@@ -8,7 +8,7 @@ from pathlib import Path
 from PySide6.QtCore import QAbstractTableModel, QBuffer, QByteArray, QIODevice, QModelIndex, QPointF, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QAction, QColor, QGuiApplication, QImage, QKeySequence, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QFileDialog, QGridLayout, QGroupBox,
-                               QHeaderView, QInputDialog, QLabel, QMainWindow, QMenu, QMessageBox, QScrollArea,
+                               QHeaderView, QInputDialog, QLabel, QLineEdit, QMainWindow, QMenu, QMessageBox, QScrollArea,
                                QSplitter, QStatusBar, QTreeView, QVBoxLayout, QWidget)
 
 from . import __version__, settings, tags, theme
@@ -504,7 +504,7 @@ MENUS = {
     "&Actions": [("&Actions...\tAlt+6", "run_actions"), ("Actions (&Quick)...\tAlt+7", "quick_action"), "-",
                  ("&Case Conversion...", "quick_case"), ("&Replace...", "quick_replace"),
                  ("Replace with Regular E&xpression...", "quick_regexp"), ("Re&move Fields...", "quick_remove")],
-    "Tag &Sources": [("&MusicBrainz...\tCtrl+I", "musicbrainz"), ("&Discogs...", None), "-",
+    "Tag &Sources": [("&MusicBrainz...\tCtrl+I", "musicbrainz"), ("&Discogs...", "discogs"), "-",
                      ("&Cover Art Archive (cover only)...", "cover_only")],
     "E&xtras": [("&Add Cover...", "add_cover"), ("E&xtract Cover...", "extract_cover"),
                 ("&Resize Cover...", "resize_cover"), ("Re&move Cover", "remove_cover")],
@@ -520,6 +520,7 @@ class MainWindow(QMainWindow):
     def __init__(self, paths: list[str] | None = None, client=None):
         super().__init__()
         self.client = client  # the MusicBrainz client (tests pass one with recorded answers)
+        self.discogs_client = None  # made on first use with the token from Options
         self._library = False  # the file cache: opened on first use
         self.folder = ""
         self.undo_stack: list[list] = []  # each step: tag snapshots and/or convert.Rename records
@@ -1079,26 +1080,56 @@ class MainWindow(QMainWindow):
         return self.client
 
     def musicbrainz(self, cover_only: bool = False):
+        self._tag_source(self._client(), cover_only)
+
+    def _discogs_client(self):
+        token = settings.get("discogs_token", "")
+        if not token:
+            token, ok = QInputDialog.getText(
+                self, "Discogs token",
+                "Searching Discogs needs your personal access token (free):\n"
+                "discogs.com > Settings > Developers > Generate new token.\n\n"
+                "Paste it here. PR7-L keeps it in its settings on this PC (Options > Discogs to change it).",
+                QLineEdit.Password)
+            if not ok or not token.strip():
+                return None
+            settings.set("discogs_token", token.strip())
+            self.discogs_client = None
+        if self.discogs_client is None or self.discogs_client.token != settings.get("discogs_token", ""):
+            from .discogs import Client
+            self.discogs_client = Client(settings.get("discogs_token", ""))
+        return self.discogs_client
+
+    def discogs(self):
+        client = self._discogs_client()
+        if client is not None:
+            self._tag_source(client)
+
+    def _tag_source(self, client, cover_only: bool = False):
+        """Tag Sources > MusicBrainz / Discogs: the shared dialog, on the selection (or every file shown)."""
         from .musicbrainz_dialog import MusicBrainzDialog
+        name = getattr(client, "NAME", "MusicBrainz")
         files = self.selected() or list(self.model.rows)
         if not files:
-            QMessageBox.information(self, "MusicBrainz", "Open a folder and select the files of one album first.")
+            QMessageBox.information(self, name, "Open a folder and select the files of one album first.")
             return
         self._confirm_discard()
         files = [self.model.rows[i] for i in self.selected_rows()] or list(self.model.rows)
-        dlg = MusicBrainzDialog(files, self._client(), self, cover_only=cover_only, options=self._options())
-        dlg.cover_size.setCurrentText(settings.get("mb_cover_size", "1200"))
-        dlg.save_cover.setChecked(settings.get_bool("mb_save_cover", True))
-        dlg.folder_jpg.setChecked(settings.get_bool("mb_folder_jpg", False))
+        dlg = MusicBrainzDialog(files, client, self, cover_only=cover_only, options=self._options())
+        key = "mb" if name == "MusicBrainz" else name.lower()
+        if dlg.cover_size.isVisibleTo(dlg) or name == "MusicBrainz":
+            dlg.cover_size.setCurrentText(settings.get(f"{key}_cover_size", "1200"))
+        dlg.save_cover.setChecked(settings.get_bool(f"{key}_save_cover", True))
+        dlg.folder_jpg.setChecked(settings.get_bool(f"{key}_folder_jpg", False))
         self._mb_dialog = dlg  # tests drive the open dialog
         if dlg.exec() and dlg.snapshots:
             self.undo_stack.append(dlg.snapshots)
             self._reload(files)
             self.panel.show_files(self.selected())
-            self.status[3].setText(f"MusicBrainz: {len(dlg.snapshots)} file(s) tagged")
-        settings.set("mb_cover_size", dlg.cover_size.currentText())
-        settings.set("mb_save_cover", dlg.save_cover.isChecked())
-        settings.set("mb_folder_jpg", dlg.folder_jpg.isChecked())
+            self.status[3].setText(f"{name}: {len(dlg.snapshots)} file(s) tagged")
+        settings.set(f"{key}_cover_size", dlg.cover_size.currentText())
+        settings.set(f"{key}_save_cover", dlg.save_cover.isChecked())
+        settings.set(f"{key}_folder_jpg", dlg.folder_jpg.isChecked())
 
     def cover_only(self):
         self.musicbrainz(cover_only=True)

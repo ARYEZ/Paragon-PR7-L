@@ -1,4 +1,5 @@
-"""MusicBrainz tag source: search, pick a release, line its tracks up with the files, write.
+"""The tag source dialog (MusicBrainz, Discogs): search, pick a release, line its tracks up with the files,
+write. What differs per source (its name, its release fields, its cover sizes) comes from the client.
 
 Network calls run on Qt's thread pool so the window never freezes; their answers come back to the dialog
 through queued signals (the GUI thread). A search result picked loads that release and its front cover
@@ -95,6 +96,8 @@ class MusicBrainzDialog(QDialog):
         super().__init__(parent)
         self.files = list(files)
         self.client = client
+        self.name = getattr(client, "NAME", "MusicBrainz")
+        self.release_fields = getattr(client, "RELEASE_FIELDS", RELEASE_FIELDS)
         self.cover_only = cover_only
         self.options = options
         self.sync = False             # tests: run the network calls inline
@@ -110,18 +113,19 @@ class MusicBrainzDialog(QDialog):
         self._token = 0
         self._pending = 0
 
-        self.setWindowTitle("Cover Art Archive" if cover_only else "MusicBrainz")
+        cover_name = getattr(client, "COVER_NAME", "COVER ART ARCHIVE")
+        self.setWindowTitle(cover_name.title() if cover_only else self.name)
         self.resize(1320, 820)
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 16)
         root.setSpacing(0)
-        root.addWidget(Header("COVER ART ARCHIVE" if cover_only else "MUSICBRAINZ"))
+        root.addWidget(Header(cover_name if cover_only else self.name.upper()))
         body = QVBoxLayout()
         body.setContentsMargins(20, 10, 20, 0)
         search = QHBoxLayout()
         self.artist = QLineEdit(_common(self.files, "ALBUMARTIST") or _common(self.files, "ARTIST"))
         self.album = QLineEdit(_common(self.files, "ALBUM"))
-        self.album.setPlaceholderText("Album, or a MusicBrainz release ID / link")
+        self.album.setPlaceholderText(getattr(client, "ID_HINT", "Album, or a release ID / link"))
         for label, e in (("Artist", self.artist), ("Album", self.album)):
             lab = QLabel(label.upper())
             lab.setProperty("role", "field")
@@ -151,7 +155,7 @@ class MusicBrainzDialog(QDialog):
         rel = QGroupBox("RELEASE")
         g = QGridLayout(rel)
         self.edits: dict[str, QLineEdit] = {}
-        for r, (label, name) in enumerate(RELEASE_FIELDS + [("Release ID", "")]):
+        for r, (label, name) in enumerate(self.release_fields + [("Release ID", "")]):
             lab = QLabel(label.upper())
             lab.setProperty("role", "field")
             g.addWidget(lab, r, 0)
@@ -163,7 +167,7 @@ class MusicBrainzDialog(QDialog):
                 self.release_id = e
             g.addWidget(e, r, 1)
         ll.addWidget(rel)
-        cov = QGroupBox("COVER ART ARCHIVE")
+        cov = QGroupBox(cover_name)
         cl = QVBoxLayout(cov)
         self.img = QLabel("")
         self.img.setFixedSize(QSize(200, 200))
@@ -182,11 +186,14 @@ class MusicBrainzDialog(QDialog):
         lab.setProperty("role", "field")
         size_row.addWidget(lab)
         self.cover_size = QComboBox()
-        self.cover_size.addItems(mb.COVER_SIZES)
+        sizes = getattr(client, "COVER_SIZES", mb.COVER_SIZES)
+        self.cover_size.addItems(sizes)
         self.cover_size.setCurrentText("1200")
         self.cover_size.currentTextChanged.connect(lambda _t: self._load_cover())
         size_row.addWidget(self.cover_size)
         size_row.addStretch(1)
+        lab.setVisible(len(sizes) > 1)  # one size only (Discogs): nothing to choose
+        self.cover_size.setVisible(len(sizes) > 1)
         opts.addLayout(size_row)
         self.save_cover = QCheckBox("Save cover in files")
         self.save_cover.setChecked(True)
@@ -207,7 +214,7 @@ class MusicBrainzDialog(QDialog):
         self.hint.setProperty("role", "dim")
         self.hint.setWordWrap(True)
         rl.addWidget(self.hint)
-        self.match = Table(["#", "Title (MusicBrainz)", "Length", "File", "File length"], mark=self._mark)
+        self.match = Table(["#", f"Title ({self.name})", "Length", "File", "File length"], mark=self._mark)
         self.tv = _view(self.match)
         for i, w in enumerate([50, 240, 70, 280]):
             self.tv.header().resizeSection(i, w)
@@ -289,15 +296,15 @@ class MusicBrainzDialog(QDialog):
     # ------------------------------------------------------------------------------------ steps
     def search(self):
         artist, album = self.artist.text(), self.album.text()
-        self._say("Searching MusicBrainz ...")
+        self._say(f"Searching {self.name} ...")
         self.run(lambda: self.client.search(artist, album), self._show_results)
 
     def _show_results(self, results: list[mb.ReleaseSummary]):
         self.summaries = results
         self.results.set_rows([(str(r.score), r.title + (f" ({r.disambiguation})" if r.disambiguation else ""),
-                                r.artist, r.date, r.country, r.label, r.format, str(r.tracks)) for r in results])
+                                r.artist, r.date, r.country, r.label, r.format, str(r.tracks or "")) for r in results])
         if not results:
-            self._say("Nothing found. Try fewer words, or paste the release's MusicBrainz link.")
+            self._say(f"Nothing found. Try fewer words, or paste the release's {self.name} link.")
             return
         n = len(self.files)
         self._say(f"{len(results)} release(s). Pick one; {n} file(s) to tag.")
@@ -318,7 +325,7 @@ class MusicBrainzDialog(QDialog):
         self.releases[release.id] = release
         self.release = release
         first = release.album_tags
-        for _, name in RELEASE_FIELDS:
+        for _, name in self.release_fields:
             self.edits[name].setText(tags.SEP.join(first.get(name, [])))
         self.release_id.setText(release.id)
         self.release_id.setCursorPosition(0)
@@ -433,7 +440,7 @@ class MusicBrainzDialog(QDialog):
                 if folder and cover is None:
                     self._folder_jpg()
         except (OSError, tags.UnsupportedFile) as e:
-            QMessageBox.warning(self, "MusicBrainz", f"Writing failed: {e}")
+            QMessageBox.warning(self, self.name, f"Writing failed: {e}")
             return
         self.accept()
 

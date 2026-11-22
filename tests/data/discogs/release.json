@@ -1,0 +1,171 @@
+{
+ "id": 31415926,
+ "status": "Accepted",
+ "year": 2026,
+ "resource_url": "https://api.discogs.com/releases/31415926",
+ "uri": "https://www.discogs.com/release/31415926-Paragon-ELSEWORLD",
+ "artists": [
+  {
+   "name": "Paragon (3)",
+   "anv": "",
+   "join": "",
+   "role": "",
+   "tracks": "",
+   "id": 111,
+   "resource_url": "https://api.discogs.com/artists/111"
+  }
+ ],
+ "artists_sort": "Paragon (3)",
+ "labels": [
+  {
+   "name": "Paragon Productions",
+   "catno": "PRGN-007",
+   "entity_type": "1",
+   "id": 333
+  }
+ ],
+ "series": [],
+ "companies": [],
+ "formats": [
+  {
+   "name": "File",
+   "qty": "2",
+   "text": "FLAC",
+   "descriptions": [
+    "Album"
+   ]
+  }
+ ],
+ "data_quality": "Needs Vote",
+ "master_id": 2718281,
+ "title": "ELSEWORLD",
+ "country": "Worldwide",
+ "released": "2026-11-20",
+ "notes": "",
+ "released_formatted": "20 Nov 2026",
+ "identifiers": [
+  {
+   "type": "Barcode",
+   "value": "0123456789012"
+  },
+  {
+   "type": "Label Code",
+   "value": "LC 0000"
+  }
+ ],
+ "genres": [
+  "Rock",
+  "Electronic"
+ ],
+ "styles": [
+  "Prog Metal",
+  "Djent"
+ ],
+ "tracklist": [
+  {
+   "position": "",
+   "type_": "heading",
+   "title": "Part One",
+   "duration": ""
+  },
+  {
+   "position": "1-1",
+   "type_": "track",
+   "title": "Portal",
+   "duration": "4:12",
+   "extraartists": [
+    {
+     "name": "A. Writer (2)",
+     "anv": "",
+     "join": "",
+     "role": "Written-By",
+     "tracks": ""
+    }
+   ]
+  },
+  {
+   "position": "1-2",
+   "type_": "track",
+   "title": "Ruins of Elsewhere",
+   "duration": "5:47",
+   "artists": [
+    {
+     "name": "Paragon (3)",
+     "anv": "",
+     "join": "Feat.",
+     "role": "",
+     "tracks": "",
+     "id": 111,
+     "resource_url": "https://api.discogs.com/artists/111"
+    },
+    {
+     "name": "Guest Singer",
+     "anv": "G. Singer",
+     "join": "",
+     "role": "",
+     "tracks": "",
+     "id": 222,
+     "resource_url": "https://api.discogs.com/artists/222"
+    }
+   ]
+  },
+  {
+   "position": "1-3",
+   "type_": "index",
+   "title": "The Long Collapse Suite",
+   "duration": "",
+   "sub_tracks": [
+    {
+     "position": "1-3a",
+     "type_": "track",
+     "title": "I. Descent",
+     "duration": "3:00"
+    },
+    {
+     "position": "1-3b",
+     "type_": "track",
+     "title": "II. Fall",
+     "duration": "4:03"
+    }
+   ]
+  },
+  {
+   "position": "",
+   "type_": "heading",
+   "title": "Part Two",
+   "duration": ""
+  },
+  {
+   "position": "2-1",
+   "type_": "track",
+   "title": "Static Bloom",
+   "duration": "4:31"
+  },
+  {
+   "position": "2-2",
+   "type_": "track",
+   "title": "Elseworld",
+   "duration": ""
+  }
+ ],
+ "extraartists": [],
+ "images": [
+  {
+   "type": "secondary",
+   "uri": "https://i.discogs.com/back.jpeg",
+   "resource_url": "https://i.discogs.com/back.jpeg",
+   "uri150": "",
+   "width": 600,
+   "height": 600
+  },
+  {
+   "type": "primary",
+   "uri": "https://i.discogs.com/front.jpeg",
+   "resource_url": "https://i.discogs.com/front.jpeg",
+   "uri150": "https://i.discogs.com/front150.jpeg",
+   "width": 600,
+   "height": 600
+  }
+ ],
+ "thumb": "https://i.discogs.com/front150.jpeg"
+}

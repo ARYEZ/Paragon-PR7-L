@@ -17,6 +17,11 @@ Python; explain the why of changes.
   injectable; one request a second to musicbrainz.org (shared lock), 503 retried; User-Agent names the repo
   (never the owner's details). `parse_release` -> per-track tags; `initial_order` lines files up by disc/track
   tags else natural file name; `write_release` returns snapshots for Undo.
+- `pr7l/discogs.py` (no Qt): the Discogs API as a second client with MusicBrainz's interface (`search`, `release`,
+  `front_cover`, giving `musicbrainz.Release/Track/ReleaseSummary`); the token is the user's, in the
+  `discogs_token` setting only. Each client names itself (`NAME`, `COVER_NAME`, `COVER_SIZES`, `RELEASE_FIELDS`,
+  `ID_HINT`) for the shared `musicbrainz_dialog.py`; the window's `_tag_source(client)` opens it. CI's live
+  Discogs test runs only with a `DISCOGS_TOKEN` secret.
 - `pr7l/main_window.py`: `FileModel` is a plain Python list model (**not** QStandardItemModel: PR7-Z's crash);
   `FileView.drawRow` paints the family selection band; `TagPanel` keeps edits (`dirty`, `pending_pictures`)
   until Save; menu items with no slot yet are greyed out. `musicbrainz_dialog.py` runs network calls on

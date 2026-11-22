@@ -1,0 +1,72 @@
+{
+ "pagination": {
+  "page": 1,
+  "pages": 1,
+  "per_page": 25,
+  "items": 2,
+  "urls": {}
+ },
+ "results": [
+  {
+   "country": "Worldwide",
+   "year": "2026",
+   "format": [
+    "File",
+    "FLAC",
+    "Album"
+   ],
+   "label": [
+    "Paragon Productions"
+   ],
+   "type": "release",
+   "genre": [
+    "Rock"
+   ],
+   "style": [
+    "Prog Metal"
+   ],
+   "id": 31415926,
+   "barcode": [
+    "0123456789012"
+   ],
+   "master_id": 2718281,
+   "master_url": "https://api.discogs.com/masters/2718281",
+   "uri": "/release/31415926-Paragon-ELSEWORLD",
+   "catno": "PRGN-007",
+   "title": "Paragon (3) - ELSEWORLD",
+   "thumb": "https://i.discogs.com/t.jpeg",
+   "cover_image": "https://i.discogs.com/c.jpeg",
+   "resource_url": "https://api.discogs.com/releases/31415926",
+   "community": {
+    "want": 1,
+    "have": 2
+   },
+   "format_quantity": 2,
+   "formats": [
+    {
+     "name": "File",
+     "qty": "2",
+     "descriptions": [
+      "Album"
+     ]
+    }
+   ]
+  },
+  {
+   "country": "UK",
+   "year": "2019",
+   "format": [
+    "Vinyl",
+    "LP"
+   ],
+   "label": [
+    "Nuclear Blast"
+   ],
+   "type": "release",
+   "id": 27182818,
+   "catno": "NB 1234",
+   "title": "Various - Elseworld",
+   "resource_url": "https://api.discogs.com/releases/27182818"
+  }
+ ]
+}

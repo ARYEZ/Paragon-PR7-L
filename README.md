@@ -5,7 +5,7 @@ PR7-W, the PR7 plugins): tag panel and cover on the left, the file grid on the r
 
 ![PR7-L](docs/screenshots/main_window.png)
 
-## What it does (0.5.0)
+## What it does (0.6.0)
 
 - **Every common format**: MP3, FLAC, Ogg Vorbis, Opus, M4A/MP4, WMA, WavPack, Monkey's Audio, Musepack,
   WAV, AIFF, TTA, DSF. Tags are read and written by [mutagen](https://github.com/quodlibet/mutagen); only the
@@ -19,6 +19,8 @@ PR7-W, the PR7 plugins): tag panel and cover on the left, the file grid on the r
   its tracks up with your files (matching lengths light up), OK writes the tags in MusicBrainz Picard's
   field names, with the front cover from the **Cover Art Archive** (500 / 1200 / original) and optionally
   `folder.jpg`. **Tag Sources > Cover Art Archive** fetches only the cover.
+- **Discogs**: the same flow as MusicBrainz (genre and style, label, catalog number, discs, the primary image).
+  Searching needs your free Discogs token (discogs.com > Settings > Developers), asked for once.
 - **ID3**: v2.3 (UTF-16) + ID3v1 by default, as Mp3tag; v2.4 in Options.
 - **Convert**: Tag - Filename (Alt+1), Filename - Tag (Alt+2), Text file - Tag (Alt+3), Tag - Tag (Alt+5)
   with Mp3tag's format strings (`$num(%track%,2) - %title%`, `$caps(%title%)` ...), a preview before OK, and
@@ -35,7 +37,6 @@ PR7-W, the PR7 plugins): tag panel and cover on the left, the file grid on the r
 - **Explorer**: "PR7-L" on the right-click menu of folders and audio files.
 - **Finishes**: OBSIDIAN and AURORA (Options).
 
-Coming next: Discogs (its menu item is there, greyed out).
 
 ## Install
 
