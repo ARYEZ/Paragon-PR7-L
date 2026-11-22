@@ -5,7 +5,7 @@ PR7-W, the PR7 plugins): tag panel and cover on the left, the file grid on the r
 
 ![PR7-L](docs/screenshots/main_window.png)
 
-## What it does (0.1.0)
+## What it does (0.2.0)
 
 - **Every common format**: MP3, FLAC, Ogg Vorbis, Opus, M4A/MP4, WMA, WavPack, Monkey's Audio, Musepack,
   WAV, AIFF, TTA, DSF. Tags are read and written by [mutagen](https://github.com/quodlibet/mutagen); only the
@@ -20,11 +20,13 @@ PR7-W, the PR7 plugins): tag panel and cover on the left, the file grid on the r
   field names, with the front cover from the **Cover Art Archive** (500 / 1200 / original) and optionally
   `folder.jpg`. **Tag Sources > Cover Art Archive** fetches only the cover.
 - **ID3**: v2.3 (UTF-16) + ID3v1 by default, as Mp3tag; v2.4 in Options.
+- **Convert**: Tag - Filename (Alt+1), Filename - Tag (Alt+2), Text file - Tag (Alt+3), Tag - Tag (Alt+5)
+  with Mp3tag's format strings (`$num(%track%,2) - %title%`, `$caps(%title%)` ...), a preview before OK, and
+  Undo (renames too). **Auto-numbering Wizard** (Ctrl+K).
 - **Explorer**: "PR7-L" on the right-click menu of folders and audio files.
 - **Finishes**: OBSIDIAN and AURORA (Options).
 
-Coming next: the converters (Tag - Filename, Filename - Tag, Text file - Tag, Tag - Tag), auto-numbering,
-actions, export and playlists, filter, Discogs. Those menu items are there but greyed out.
+Coming next: actions, export and playlists, filter, Discogs. Those menu items are there but greyed out.
 
 ## Install
 

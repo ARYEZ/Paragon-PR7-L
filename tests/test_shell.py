@@ -51,3 +51,9 @@ def test_dump(tmp_path):
     got = json.loads(out.read_text())
     assert got[str(p)]["fields"]["TITLE"] == ["t"] and got[str(p)]["codec"] == "Opus"
     assert "error" in got[str(tmp_path / "x.mp3")]
+
+
+def test_tests_never_touch_the_real_settings(qapp, tmp_path_factory):
+    from pr7l import settings
+    path = settings._s().fileName()
+    assert path.endswith(".ini") and str(tmp_path_factory.getbasetemp()) in path

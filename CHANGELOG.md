@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.0
+
+- Convert menu, as in Mp3tag: **Tag - Filename** (Alt+1; a `\\` makes folders, illegal characters become `-`),
+  **Filename - Tag** (Alt+2; also reads folder names, `%dummy%` skips a part), **Text file - Tag** (Alt+3; load a
+  text file or paste a track list), **Tag - Tag** (Alt+5). Each shows a preview of every file first, keeps a
+  history of format strings, and is one Undo step (renames are undone too, folders it made are removed).
+- **Auto-numbering Wizard** (Ctrl+K): start number, leading zero, per-folder counter, track totals, disc numbers
+  by folder.
+- Format strings: Mp3tag's `%field%` placeholders, `%_filename%` and the other file placeholders, and its
+  `$functions` (`$num $caps $left $right $mid $replace $regexp $if $if2 $ifgreater $meta` ... see `pr7l/script.py`).
+- Fixed: tests wrote PR7-L's real settings; they now go to a temp folder like PR7-W's and PR7-Z's.
+
 ## 0.1.0
 
 First version.

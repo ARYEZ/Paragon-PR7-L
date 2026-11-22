@@ -9,7 +9,9 @@ from PySide6.QtCore import QSettings
 
 
 def _s() -> QSettings:
-    return QSettings("Paragon", "PR7-L")
+    # The default format, not QSettings("Paragon", "PR7-L"): that constructor always uses the native format
+    # (the registry), so the tests' switch to INI files in a temp folder wouldn't reach it.
+    return QSettings(QSettings.defaultFormat(), QSettings.UserScope, "Paragon", "PR7-L")
 
 
 def get(key: str, default: str = "") -> str:

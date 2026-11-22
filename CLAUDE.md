@@ -21,9 +21,14 @@ Python; explain the why of changes.
   `FileView.drawRow` paints the family selection band; `TagPanel` keeps edits (`dirty`, `pending_pictures`)
   until Save; menu items with no slot yet are greyed out. `musicbrainz_dialog.py` runs network calls on
   QThreadPool and answers through queued signals; `dlg.sync = True` runs them inline (tests).
+- `pr7l/script.py` (no Qt): Mp3tag format strings (`%field%`, `%_filename%`..., `$func(...)`, `'quoted'`);
+  `guess(pattern, text)` reads fields back out (Filename/Text - Tag). `pr7l/convert.py` (no Qt): each converter
+  returns `Planned` items (new path or changes, or an error) for the preview; the window's `apply_plan` applies
+  them as one Undo step, which may hold `convert.Rename` records next to tag snapshots.
 - `pr7l/shell.py`: registry verbs "PR7-L" on `Directory` and `SystemFileAssociations\<ext>` (HKCU);
   `app.collect` merges the one-process-per-file launches into one window (PR7-Z's scheme).
-- `pr7l/settings.py`: typed QSettings getters (registry values come back as strings).
+- `pr7l/settings.py`: typed QSettings getters (registry values come back as strings). Always
+  `QSettings(QSettings.defaultFormat(), UserScope, ...)`: `QSettings(org, app)` ignores the tests' redirect.
 - Installer `installer/pr7l.iss` (Inno Setup 6, per user, AppId {4C0E3F59-8A0B-4E7D-9B5A-2F7C61D3A9E1}
   permanent). CI installs it silently, runs `tools/verify_install.py installed` (which also runs the installed
   exe with `--dump` on every test format), uninstalls, `... uninstalled`.

@@ -409,9 +409,9 @@ MENUS = {
               ("Remove from &List\tDel", "remove_from_list")],
     "&View": [("&Tag Panel\tF6", "toggle_panel"), ("&Extended Tags...\tAlt+T", "extended_tags"), "-",
               ("&Filter\tF3", None)],
-    "&Convert": [("&Tag - Filename\tAlt+1", None), ("&Filename - Tag\tAlt+2", None),
-                 ("Te&xt file - Tag\tAlt+3", None), ("Tag - T&ag\tAlt+5", None), "-",
-                 ("Auto-&numbering Wizard...\tCtrl+K", None)],
+    "&Convert": [("&Tag - Filename\tAlt+1", "tag_to_filename"), ("&Filename - Tag\tAlt+2", "filename_to_tag"),
+                 ("Te&xt file - Tag\tAlt+3", "text_to_tag"), ("Tag - T&ag\tAlt+5", "tag_to_tag"), "-",
+                 ("Auto-&numbering Wizard...\tCtrl+K", "auto_number")],
     "&Actions": [("&Actions...\tAlt+6", None), ("Actions (&Quick)...\tAlt+7", None)],
     "Tag &Sources": [("&MusicBrainz...\tCtrl+I", "musicbrainz"), ("&Discogs...", None), "-",
                      ("&Cover Art Archive (cover only)...", "cover_only")],
@@ -420,7 +420,9 @@ MENUS = {
     "&Help": [("&About PR7-L...", "about")],
 }
 TOOLBAR_SLOTS = {"opendir": "open_dir", "adddir": "add_dir", "save": "save", "removetag": "remove_tag",
-                 "undo": "undo", "musicbrainz": "musicbrainz", "cover": "cover_only"}
+                 "undo": "undo", "musicbrainz": "musicbrainz", "cover": "cover_only", "tag2file": "tag_to_filename",
+                 "file2tag": "filename_to_tag", "text2tag": "text_to_tag", "tag2tag": "tag_to_tag",
+                 "number": "auto_number"}
 
 
 class MainWindow(QMainWindow):
@@ -428,7 +430,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.client = client  # the MusicBrainz client (tests pass one with recorded answers)
         self.folder = ""
-        self.undo_stack: list[list[tags.Snapshot]] = []
+        self.undo_stack: list[list] = []  # each step: tag snapshots and/or convert.Rename records
         self.copied: dict[str, list[str]] | None = None
         self.resize(1440, 860)
         self.actions_by_slot: dict[str, QAction] = {}
@@ -701,7 +703,12 @@ class MainWindow(QMainWindow):
         if not self.undo_stack:
             self.status[3].setText("Nothing to undo")
             return
-        snaps = self.undo_stack.pop()
+        from .convert import Rename, undo_renames
+        step = self.undo_stack.pop()
+        renames = [r for r in step if isinstance(r, Rename)]
+        snaps = [s for s in step if not isinstance(s, Rename)]
+        errors = undo_renames(renames)
+        self._renamed([(r.new, r.old) for r in renames])
         for s in snaps:
             try:
                 tags.restore(s, self._options())
@@ -709,7 +716,89 @@ class MainWindow(QMainWindow):
                 pass
         self._reload([TagFile(path=s.path, kind="") for s in snaps])
         self.panel.show_files(self.selected())
-        self.status[3].setText(f"Undone: {len(snaps)} file(s)")
+        self.status[3].setText(f"Undone: {len(step)} file(s)")
+        if errors:
+            QMessageBox.warning(self, "Undo", "These files couldn't be renamed back:\n\n" + "\n".join(errors[:20]))
+
+    # ---------------------------------------------------------------------------------------- converters
+    def _renamed(self, moves: list[tuple[str, str]]):
+        """Rows whose files were renamed: read them at their new paths."""
+        index = {os.path.normcase(t.path): i for i, t in enumerate(self.model.rows)}
+        for old, new in moves:
+            i = index.get(os.path.normcase(old))
+            if i is not None:
+                try:
+                    self.model.replace(i, tags.read(new))
+                except (tags.UnsupportedFile, OSError):
+                    pass
+
+    def apply_plan(self, planned) -> int:
+        """Write each planned file's own changes (or rename it); one Undo step. Returns how many failed."""
+        from .convert import apply_renames
+        step, failed = [], []
+        renames = [p for p in planned if p.new and not p.error]
+        if renames:
+            done, errors = apply_renames(renames)
+            failed += errors
+            step += done
+            self._renamed([(r.old, r.new) for r in done])
+        options = self._options()
+        for p in planned:
+            if p.error or not p.changes:
+                continue
+            try:
+                snap = tags.snapshot(p.tf.path)
+                tags.save(p.tf.path, p.changes, None, options)
+                step.append(snap)
+            except Exception as e:  # noqa: BLE001 - report every file's error
+                failed.append(f"{p.tf.filename}: {e}")
+        if step:
+            self.undo_stack.append(step)
+        self._reload([p.tf for p in planned if p.changes])
+        self.panel.show_files(self.selected())
+        self.status[3].setText(f"{len(step)} file(s) changed" + (f", {len(failed)} failed" if failed else ""))
+        if failed:
+            QMessageBox.warning(self, "PR7-L", "These files couldn't be changed:\n\n" + "\n".join(failed[:20]))
+        return len(failed)
+
+    def _converter_files(self, title: str):
+        self._confirm_discard()
+        files = self.selected()
+        if not files:
+            QMessageBox.information(self, title, "Select the files first (Ctrl+A for all).")
+        return files
+
+    def _convert(self, kind: str):
+        from .convert_dialog import KINDS, ConvertDialog
+        files = self._converter_files(KINDS[kind][0])
+        if not files:
+            return
+        dlg = ConvertDialog(kind, files, self)
+        self._dialog = dlg  # tests drive the open dialog
+        if dlg.exec():
+            self.apply_plan(dlg.planned)
+
+    def tag_to_filename(self):
+        self._convert("tag2file")
+
+    def filename_to_tag(self):
+        self._convert("file2tag")
+
+    def text_to_tag(self):
+        self._convert("text2tag")
+
+    def tag_to_tag(self):
+        self._convert("tag2tag")
+
+    def auto_number(self):
+        from .convert_dialog import AutoNumberDialog
+        files = self._converter_files("Auto-numbering Wizard")
+        if not files:
+            return
+        dlg = AutoNumberDialog(files, self)
+        self._dialog = dlg
+        if dlg.exec():
+            self.apply_plan(dlg.planned)
 
     def copy_tag(self):
         f = self.selected()
