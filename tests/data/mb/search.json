@@ -1,0 +1,147 @@
+{
+ "created": "2026-11-22T10:00:00.000Z",
+ "count": 3,
+ "offset": 0,
+ "releases": [
+  {
+   "id": "6f1c0d6e-0000-4000-8000-00000000a3e2",
+   "score": 100,
+   "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+   "count": 1,
+   "title": "ELSEWORLD",
+   "status": "Official",
+   "text-representation": {
+    "language": "eng",
+    "script": "Latn"
+   },
+   "artist-credit": [
+    {
+     "name": "Paragon",
+     "artist": {
+      "id": "a1b2c3d4-0000-4000-8000-000000000001",
+      "name": "Paragon",
+      "sort-name": "Paragon",
+      "disambiguation": ""
+     }
+    }
+   ],
+   "release-group": {
+    "id": "6f1c0d6e-0000-4000-8000-0000000000aa",
+    "type-id": "f529b476-6e62-324f-b0aa-1f3e33d313fc",
+    "primary-type-id": "f529b476-6e62-324f-b0aa-1f3e33d313fc",
+    "title": "ELSEWORLD",
+    "primary-type": "Album"
+   },
+   "date": "2026-11-20",
+   "country": "XW",
+   "release-events": [
+    {
+     "date": "2026-11-20",
+     "area": {
+      "id": "525d4e18-3d00-31b9-a58b-a146a916de8f",
+      "name": "[Worldwide]",
+      "sort-name": "[Worldwide]",
+      "iso-3166-1-codes": [
+       "XW"
+      ]
+     }
+    }
+   ],
+   "barcode": "",
+   "label-info": [
+    {
+     "catalog-number": "PRGN-007",
+     "label": {
+      "id": "1e1e1e1e-0000-4000-8000-000000000003",
+      "name": "Paragon Productions"
+     }
+    }
+   ],
+   "track-count": 3,
+   "media": [
+    {
+     "format": "Digital Media",
+     "disc-count": 0,
+     "track-count": 3
+    }
+   ]
+  },
+  {
+   "id": "6f1c0d6e-0000-4000-8000-00000000b001",
+   "score": 88,
+   "count": 1,
+   "title": "ELSEWORLD (Instrumentals)",
+   "status": "Official",
+   "artist-credit": [
+    {
+     "name": "Paragon",
+     "artist": {
+      "id": "a1b2c3d4-0000-4000-8000-000000000001",
+      "name": "Paragon",
+      "sort-name": "Paragon",
+      "disambiguation": ""
+     }
+    }
+   ],
+   "date": "2026-12-04",
+   "country": "XW",
+   "label-info": [
+    {
+     "label": {
+      "id": "1e1e1e1e-0000-4000-8000-000000000003",
+      "name": "Paragon Productions"
+     }
+    }
+   ],
+   "track-count": 3,
+   "media": [
+    {
+     "format": "Digital Media",
+     "disc-count": 0,
+     "track-count": 3
+    }
+   ]
+  },
+  {
+   "id": "6f1c0d6e-0000-4000-8000-00000000c001",
+   "score": 61,
+   "count": 2,
+   "title": "Elseworld",
+   "status": "Official",
+   "artist-credit": [
+    {
+     "name": "Various Artists",
+     "artist": {
+      "id": "89ad4ac3-39f7-470e-963a-56509c546377",
+      "name": "Various Artists",
+      "sort-name": "Various Artists"
+     }
+    }
+   ],
+   "date": "2019-03-08",
+   "country": "GB",
+   "label-info": [
+    {
+     "catalog-number": "NB 1234",
+     "label": {
+      "id": "x",
+      "name": "Nuclear Blast"
+     }
+    }
+   ],
+   "track-count": 14,
+   "media": [
+    {
+     "format": "CD",
+     "disc-count": 1,
+     "track-count": 7
+    },
+    {
+     "format": "CD",
+     "disc-count": 1,
+     "track-count": 7
+    }
+   ]
+  }
+ ]
+}

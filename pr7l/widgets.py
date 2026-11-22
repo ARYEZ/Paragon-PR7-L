@@ -30,6 +30,10 @@ L_SHAPE = [(0, 0), (.24, 0), (.24, .8), (.72, .8), (.72, 1), (0, 1)]
 SEVEN_SHAPE = [(0, 0), (.8, 0), (.8, .2), (.44, 1), (.18, 1), (.5, .2), (0, .2)]
 
 
+def _lean() -> QTransform:
+    return QTransform(1, 0, -SLANT, 1, SLANT, 0)  # x' = x + slant*(1 - y): y is down, the top leans right
+
+
 def _letters() -> tuple[QPainterPath, QPainterPath]:
     """(P, R, dash, Z) and the 7, in letter units with y down, slanted."""
     main, seven = QPainterPath(), QPainterPath()
@@ -83,7 +87,7 @@ def draw_mark(p: QPainter, area: QRectF, glow: bool = True) -> QRectF:
 
 
 class Header(QWidget):
-    """64 px family header: PARAGON and the PR7-Z mark, a panelEdge line under it."""
+    """64 px family header: PARAGON and the PR7-L mark, a subtitle; the current finish on the right."""
 
     def __init__(self, subtitle: str = "TAG EDITOR", parent=None):
         super().__init__(parent)
@@ -106,7 +110,7 @@ class Header(QWidget):
         f2 = QFont("Inter", 1); f2.setPixelSize(12); f2.setWeight(QFont.DemiBold)
         p.setFont(f2); p.setPen(QColor(theme.TEXT_DIM))
         p.drawText(QRectF(mark.right() + 16, 0, 300, r.height()), Qt.AlignVCenter | Qt.AlignLeft, self.subtitle)
-        p.drawText(QRectF(0, 0, r.width() - 22, r.height()), Qt.AlignVCenter | Qt.AlignRight, "OBSIDIAN")
+        p.drawText(QRectF(0, 0, r.width() - 22, r.height()), Qt.AlignVCenter | Qt.AlignRight, theme.FINISH.upper())
         p.setPen(QPen(QColor(theme.PANEL_EDGE), 1))
         p.drawLine(0, r.height() - 1, r.width(), r.height() - 1)
 
@@ -302,7 +306,7 @@ class KeyButton(QAbstractButton):
             outer.setAlphaF(0.8)
         p.setPen(QPen(outer, 1)); p.drawRoundedRect(r.adjusted(-0.5, -0.5, 0.5, 0.5), 6.5, 6.5)
         # icon and label
-        colour = QColor("#FFFFFF") if (hover or down) else QColor(theme.TEXT)
+        colour = QColor("#FFFFFF") if (hover or down) else QColor(theme.ON_DARK)  # keys stay black in AURORA
         if not self.isEnabled():
             colour = QColor(theme.TEXT_DIM)
         if not self.label:  # icon-only key (Up): centred

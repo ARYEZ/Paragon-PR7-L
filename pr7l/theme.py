@@ -1,4 +1,5 @@
-"""The Paragon family look (OBSIDIAN finish) for Qt.
+"""The Paragon family look for Qt, in its two finishes: OBSIDIAN (dark, default) and AURORA (light).
+(Paragon PR7-Z's theme.py plus AURORA, as in PR7-W.)
 
 Every value here comes from Paragon Photo's docs/paragon-finish-spec.md, which was
 extracted from the PR7 plugins' ParagonLookAndFeel / Finish sources. Colour rule of
@@ -33,6 +34,34 @@ DOCK_TOP = "#0E0B0F"
 DOCK_BOTTOM = "#09070A"
 TAB_FRAME = "#0D0A0E"
 SCROLL_TRACK = "#0B090C"
+
+ON_DARK = "#E8E8EA"     # text and icons on things that stay dark in both finishes (keys, menus, buttons)
+
+# ---------------------------------------------------------------- the finishes (spec section 0, 1d, 1f, 5)
+# OBSIDIAN is the values above. AURORA: warm pearl surfaces dimmed 10% (pearl x 0.9), ink lettering;
+# the screens, neon, menus, buttons and black keys stay as they are on both.
+_PEARL = 0.9
+FINISHES = {
+    "obsidian": dict(BACKGROUND="#060407", PANEL_EDGE="#27222A", TEXT="#E8E8EA", TEXT_DIM="#8A8A92",
+                     WIDGET="#151217", DOCK_TOP="#0E0B0F", DOCK_BOTTOM="#09070A", TAB_FRAME="#0D0A0E",
+                     SCROLL_TRACK="#0B090C", ALT_ROW="#09070A"),
+    "aurora": dict(BACKGROUND="#D9D0D4", PANEL_EDGE="#A8999F", TEXT="#26252A", TEXT_DIM="#6B6569",
+                   WIDGET="#E6E4E5", DOCK_TOP="#E0DBDD", DOCK_BOTTOM="#D6CCD2", TAB_FRAME="#D3C9CE",
+                   SCROLL_TRACK="#D0C6CB", ALT_ROW="#D3CACE"),
+}
+ALT_ROW = "#09070A"
+
+FINISH = "obsidian"
+
+
+def set_finish(name: str) -> None:
+    """Switch the module's colours to a finish. Style sheets and painting read them afresh."""
+    global FINISH
+    FINISH = name if name in FINISHES else "obsidian"
+    globals().update(FINISHES[FINISH])
+
+
+
 
 # 1b. Family gradient stops (DE0639 -> CD6619), and the two strengths it's drawn at.
 FAMILY_STOPS = [(0.0, "#DE0639"), (0.25, "#D90738"), (0.5, "#D42E2A"), (0.75, "#CF5C1C"), (1.0, "#CD6619")]
@@ -73,24 +102,24 @@ def palette() -> QPalette:
     """Qt's colour roles set to the family scheme, so nothing falls back to Qt's blue."""
     p = QPalette()
     roles = {
-        QPalette.Window: BACKGROUND, QPalette.WindowText: TEXT, QPalette.Base: WIDGET,
-        QPalette.AlternateBase: "#100D11", QPalette.Text: TEXT, QPalette.Button: BUTTON,
-        QPalette.ButtonText: TEXT, QPalette.BrightText: "#FFFFFF", QPalette.Highlight: ACCENT_DIM,
-        QPalette.HighlightedText: "#FFFFFF", QPalette.ToolTipBase: PANEL, QPalette.ToolTipText: TEXT,
-        QPalette.PlaceholderText: TEXT_DIM, QPalette.Link: LED_ORANGE, QPalette.LinkVisited: GLOW,
-        QPalette.Mid: PANEL_EDGE, QPalette.Dark: MENU, QPalette.Shadow: "#000000",
+        QPalette.ColorRole.Window: BACKGROUND, QPalette.ColorRole.WindowText: TEXT, QPalette.ColorRole.Base: WIDGET,
+        QPalette.ColorRole.AlternateBase: "#100D11", QPalette.ColorRole.Text: TEXT, QPalette.ColorRole.Button: BUTTON,
+        QPalette.ColorRole.ButtonText: TEXT, QPalette.ColorRole.BrightText: "#FFFFFF", QPalette.ColorRole.Highlight: ACCENT_DIM,
+        QPalette.ColorRole.HighlightedText: "#FFFFFF", QPalette.ColorRole.ToolTipBase: PANEL, QPalette.ColorRole.ToolTipText: TEXT,
+        QPalette.ColorRole.PlaceholderText: TEXT_DIM, QPalette.ColorRole.Link: LED_ORANGE, QPalette.ColorRole.LinkVisited: GLOW,
+        QPalette.ColorRole.Mid: PANEL_EDGE, QPalette.ColorRole.Dark: MENU, QPalette.ColorRole.Shadow: "#000000",
     }
     for role, colour in roles.items():
         p.setColor(role, QColor(colour))
-    for role in (QPalette.WindowText, QPalette.Text, QPalette.ButtonText):
-        p.setColor(QPalette.Disabled, role, QColor(TEXT_DIM))
+    for role in (QPalette.ColorRole.WindowText, QPalette.ColorRole.Text, QPalette.ColorRole.ButtonText):
+        p.setColor(QPalette.ColorGroup.Disabled, role, QColor(TEXT_DIM))
     return p
 
 
 def _chevron() -> str:
     """A small down chevron in textDim, written once to a temp file (Qt style sheets need a file URL)."""
     import tempfile
-    path = Path(tempfile.gettempdir()) / "pr7z_chevron.svg"
+    path = Path(tempfile.gettempdir()) / "pr7l_chevron.svg"
     if not path.exists():
         path.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6" viewBox="0 0 10 6">'
                         f'<path d="M1 1 L5 5 L9 1" fill="none" stroke="{TEXT_DIM}" stroke-width="1.6" '
@@ -104,7 +133,7 @@ def stylesheet() -> str:
     return f"""
 * {{ font-family: "Inter"; font-size: 13px; color: {TEXT}; outline: 0; }}
 QMainWindow, QDialog {{ background: {BACKGROUND}; }}
-QToolTip {{ background: {PANEL}; color: {TEXT}; border: 1px solid {PANEL_EDGE}; border-radius: 4px; padding: 5px 9px; }}
+QToolTip {{ background: {PANEL}; color: {ON_DARK}; border: 1px solid {PANEL_EDGE}; border-radius: 4px; padding: 5px 9px; }}
 
 /* Menu bar and popup menus: black, white text, the family gradient under the mouse. */
 QMenuBar {{ background: {BACKGROUND}; border-bottom: 1px solid {PANEL_EDGE}; padding: 2px 6px; }}
@@ -117,11 +146,12 @@ QMenu::item:disabled {{ color: rgba(255,255,255,0.35); }}
 QMenu::separator {{ height: 1px; background: {PANEL_EDGE}; margin: 4px 6px; }}
 
 /* Buttons: 1C1C20, 1 px panelEdge, radius 4; pressed = dim family gradient. */
-QPushButton {{ background: {BUTTON}; border: 1px solid {PANEL_EDGE}; border-radius: 4px; padding: 7px 16px;
+QPushButton {{ background: {BUTTON}; color: {ON_DARK}; border: 1px solid {PANEL_EDGE}; border-radius: 4px; padding: 7px 16px;
               font-weight: 600; font-size: 12px; }}
 QPushButton:hover {{ background: {BUTTON_HOVER}; }}
 QPushButton:pressed {{ background: {qss_gradient(DIM)}; }}
 QPushButton:disabled {{ color: rgba(232,232,234,0.4); }}
+QComboBox QAbstractItemView, QComboBox QAbstractItemView::item {{ color: {ON_DARK}; }}
 QPushButton:default {{ border: 1px solid {ACCENT}; }}
 
 /* Text fields and drop-downs: widget background, accent caret/text per spec. */
@@ -138,9 +168,11 @@ QCheckBox::indicator, QRadioButton::indicator {{ width: 12px; height: 12px; bord
               border: 1px solid #000000; background: {qss_gradient(DIM * 0.5)}; }}
 QCheckBox::indicator:checked, QRadioButton::indicator:checked {{ background: {lit}; }}
 QCheckBox::indicator:hover, QRadioButton::indicator:hover {{ border: 1px solid {TEXT}; }}
+QCheckBox:disabled, QRadioButton:disabled {{ color: {TEXT_DIM}; }}
+QCheckBox::indicator:disabled, QRadioButton::indicator:disabled {{ background: {WIDGET}; border: 1px solid {PANEL_EDGE}; }}
 
 /* The file list: selected row = family gradient @.22 with a gradient border. */
-QTableView, QListView {{ background: {BACKGROUND}; alternate-background-color: #09070A; border: 1px solid {PANEL_EDGE};
+QTableView, QListView {{ background: {BACKGROUND}; alternate-background-color: {ALT_ROW}; border: 1px solid {PANEL_EDGE};
               border-radius: 6px; gridline-color: {PANEL_EDGE}; }}
 QTableView::item, QListView::item {{ padding: 4px 6px; }}
 QTableView::item:selected, QListView::item:selected {{ background: {qss_gradient(LIT, 0.22)}; color: #FFFFFF; }}
@@ -148,7 +180,7 @@ QTableCornerButton::section {{ background: {TAB_FRAME}; border: none; }}
 QPlainTextEdit, QTextEdit {{ background: {WIDGET}; border: 1px solid {PANEL_EDGE}; border-radius: 6px; padding: 6px;
               font-family: "Consolas", "Cascadia Mono", "DejaVu Sans Mono", monospace; font-size: 12px;
               selection-background-color: {ACCENT_DIM}; }}
-QTreeView {{ background: {BACKGROUND}; alternate-background-color: #09070A; border: 1px solid {PANEL_EDGE};
+QTreeView {{ background: {BACKGROUND}; alternate-background-color: {ALT_ROW}; border: 1px solid {PANEL_EDGE};
               border-radius: 6px; padding: 2px; }}
 QTreeView::item {{ height: 24px; padding: 0 4px; border: 1px solid transparent; }}
 QTreeView::item:hover {{ background: {row_soft}; }}

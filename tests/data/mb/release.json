@@ -1,0 +1,233 @@
+{
+ "id": "6f1c0d6e-0000-4000-8000-00000000a3e2",
+ "title": "ELSEWORLD",
+ "status": "Official",
+ "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+ "quality": "normal",
+ "packaging": "None",
+ "disambiguation": "",
+ "date": "2026-11-20",
+ "country": "XW",
+ "barcode": "0123456789012",
+ "asin": null,
+ "text-representation": {
+  "language": "eng",
+  "script": "Latn"
+ },
+ "artist-credit": [
+  {
+   "name": "Paragon",
+   "joinphrase": "",
+   "artist": {
+    "id": "a1b2c3d4-0000-4000-8000-000000000001",
+    "name": "Paragon",
+    "sort-name": "Paragon",
+    "disambiguation": ""
+   }
+  }
+ ],
+ "label-info": [
+  {
+   "catalog-number": "PRGN-007",
+   "label": {
+    "id": "1e1e1e1e-0000-4000-8000-000000000003",
+    "name": "Paragon Productions",
+    "sort-name": "Paragon Productions",
+    "label-code": null
+   }
+  }
+ ],
+ "release-group": {
+  "id": "6f1c0d6e-0000-4000-8000-0000000000aa",
+  "title": "ELSEWORLD",
+  "primary-type": "Album",
+  "secondary-types": [],
+  "first-release-date": "2026-11-20",
+  "disambiguation": "",
+  "artist-credit": [
+   {
+    "name": "Paragon",
+    "joinphrase": "",
+    "artist": {
+     "id": "a1b2c3d4-0000-4000-8000-000000000001",
+     "name": "Paragon",
+     "sort-name": "Paragon",
+     "disambiguation": ""
+    }
+   }
+  ]
+ },
+ "genres": [
+  {
+   "id": "g1",
+   "name": "progressive metal",
+   "count": 4,
+   "disambiguation": ""
+  },
+  {
+   "id": "g2",
+   "name": "djent",
+   "count": 1,
+   "disambiguation": ""
+  }
+ ],
+ "cover-art-archive": {
+  "artwork": true,
+  "count": 1,
+  "front": true,
+  "back": false,
+  "darkened": false
+ },
+ "media": [
+  {
+   "position": 1,
+   "format": "Digital Media",
+   "format-id": "907a28d9-b3b2-3ef6-89a8-7b18d91d4794",
+   "title": "",
+   "track-count": 3,
+   "track-offset": 0,
+   "tracks": [
+    {
+     "id": "77770000-0000-4000-8000-000000000001",
+     "position": 1,
+     "number": "1",
+     "title": "Portal",
+     "length": 252000,
+     "artist-credit": [
+      {
+       "name": "Paragon",
+       "joinphrase": "",
+       "artist": {
+        "id": "a1b2c3d4-0000-4000-8000-000000000001",
+        "name": "Paragon",
+        "sort-name": "Paragon",
+        "disambiguation": ""
+       }
+      }
+     ],
+     "recording": {
+      "id": "88880000-0000-4000-8000-000000000001",
+      "title": "Portal",
+      "length": 252000,
+      "first-release-date": "2026-11-20",
+      "video": false,
+      "disambiguation": "",
+      "isrcs": [
+       "XXA012600001"
+      ],
+      "artist-credit": [
+       {
+        "name": "Paragon",
+        "joinphrase": "",
+        "artist": {
+         "id": "a1b2c3d4-0000-4000-8000-000000000001",
+         "name": "Paragon",
+         "sort-name": "Paragon",
+         "disambiguation": ""
+        }
+       }
+      ]
+     }
+    },
+    {
+     "id": "77770000-0000-4000-8000-000000000002",
+     "position": 2,
+     "number": "2",
+     "title": "Ruins of Elsewhere",
+     "length": 347000,
+     "artist-credit": [
+      {
+       "name": "Paragon",
+       "joinphrase": " feat. ",
+       "artist": {
+        "id": "a1b2c3d4-0000-4000-8000-000000000001",
+        "name": "Paragon",
+        "sort-name": "Paragon",
+        "disambiguation": ""
+       }
+      },
+      {
+       "name": "Guest Singer",
+       "joinphrase": "",
+       "artist": {
+        "id": "a1b2c3d4-0000-4000-8000-000000000002",
+        "name": "Guest Singer",
+        "sort-name": "Singer, Guest"
+       }
+      }
+     ],
+     "recording": {
+      "id": "88880000-0000-4000-8000-000000000002",
+      "title": "Ruins of Elsewhere",
+      "length": 347000,
+      "first-release-date": "2026-11-20",
+      "video": false,
+      "disambiguation": "",
+      "isrcs": [],
+      "artist-credit": [
+       {
+        "name": "Paragon",
+        "joinphrase": " feat. ",
+        "artist": {
+         "id": "a1b2c3d4-0000-4000-8000-000000000001",
+         "name": "Paragon",
+         "sort-name": "Paragon",
+         "disambiguation": ""
+        }
+       },
+       {
+        "name": "Guest Singer",
+        "joinphrase": "",
+        "artist": {
+         "id": "a1b2c3d4-0000-4000-8000-000000000002",
+         "name": "Guest Singer",
+         "sort-name": "Singer, Guest"
+        }
+       }
+      ]
+     }
+    },
+    {
+     "id": "77770000-0000-4000-8000-000000000003",
+     "position": 3,
+     "number": "3",
+     "title": "Static Bloom",
+     "length": null,
+     "artist-credit": [
+      {
+       "name": "Paragon",
+       "joinphrase": "",
+       "artist": {
+        "id": "a1b2c3d4-0000-4000-8000-000000000001",
+        "name": "Paragon",
+        "sort-name": "Paragon",
+        "disambiguation": ""
+       }
+      }
+     ],
+     "recording": {
+      "id": "88880000-0000-4000-8000-000000000003",
+      "title": "Static Bloom",
+      "length": null,
+      "first-release-date": "2026-11-20",
+      "video": false,
+      "disambiguation": "",
+      "isrcs": [],
+      "artist-credit": [
+       {
+        "name": "Paragon",
+        "joinphrase": "",
+        "artist": {
+         "id": "a1b2c3d4-0000-4000-8000-000000000001",
+         "name": "Paragon",
+         "sort-name": "Paragon",
+         "disambiguation": ""
+        }
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,62 +1,57 @@
-"""The window, laid out like Mp3tag: tag panel and cover on the left, the file grid on the right. (Mock-up.)"""
+"""The window, laid out like Mp3tag: tag panel and cover on the left, the file grid on the right."""
 
 from __future__ import annotations
 
-from PySide6.QtCore import QAbstractTableModel, QModelIndex, QPointF, QRectF, QSize, Qt
-from PySide6.QtGui import QAction, QKeySequence, QPainter, QPen, QPixmap
-from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QGridLayout, QGroupBox, QHBoxLayout, QHeaderView, QLabel,
-                               QMainWindow, QScrollArea, QSplitter, QStatusBar, QTreeView, QVBoxLayout, QWidget)
+import hashlib
+import os
+from pathlib import Path
 
-from . import theme
+from PySide6.QtCore import QAbstractTableModel, QBuffer, QByteArray, QIODevice, QModelIndex, QPointF, QRectF, QSize, Qt, Signal
+from PySide6.QtGui import QAction, QColor, QGuiApplication, QImage, QKeySequence, QPainter, QPen, QPixmap
+from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QFileDialog, QGridLayout, QGroupBox,
+                               QHeaderView, QInputDialog, QLabel, QMainWindow, QMenu, QMessageBox, QScrollArea,
+                               QSplitter, QStatusBar, QTreeView, QVBoxLayout, QWidget)
+
+from . import __version__, settings, tags, theme
+from .musicbrainz import fmt_length
+from .tags import SEP, TagFile
 from .widgets import Header, Toolbar, file_icon
 
-COLUMNS = ["Filename", "Title", "Artist", "Album", "Track", "Year", "Genre", "Length", "Bitrate", "Codec", "Tag", "Path"]
-PANEL_FIELDS = ["Title", "Artist", "Album", "Year", "Track", "Genre", "Comment", "Album Artist", "Composer", "Disc"]
+KEEP = "< keep >"
+BLANK = "< blank >"
+# The panel's fields, in Mp3tag's order: (label, field).
+PANEL_FIELDS = [("Title", "TITLE"), ("Artist", "ARTIST"), ("Album", "ALBUM"), ("Year", "YEAR"), ("Track", "TRACK"),
+                ("Genre", "GENRE"), ("Comment", "COMMENT"), ("Album Artist", "ALBUMARTIST"),
+                ("Composer", "COMPOSER"), ("Disc", "DISCNUMBER")]
 
-MENUS = {
-    "&File": ["Change &Directory...\tCtrl+D", "&Add Directory...\tCtrl+Shift+D", "&Refresh\tF5", "-",
-              "&Save Tag\tCtrl+S", "Remo&ve Tag\tCtrl+R", "&Undo\tCtrl+Z", "-", "&Export...\tCtrl+E",
-              "Create &Playlist...\tCtrl+L", "-", "&Options...\tCtrl+O", "-", "E&xit\tAlt+F4"],
-    "&Edit": ["Select &All\tCtrl+A", "&Invert Selection", "-", "&Copy Tag\tCtrl+C", "&Paste Tag\tCtrl+V", "-",
-              "&Find\tCtrl+F"],
-    "&View": ["&Tag Panel\tF6", "&Extended Tags...\tAlt+T", "-", "&Customize Columns...", "-", "&Filter\tF3"],
-    "&Convert": ["&Tag - Filename\tAlt+1", "&Filename - Tag\tAlt+2", "Te&xt file - Tag\tAlt+3",
-                 "Tag - T&ag\tAlt+5", "-", "Auto-&numbering Wizard...\tCtrl+K"],
-    "&Actions": ["&Actions...\tAlt+6", "Actions (&Quick)...\tAlt+7", "-", "&Case Conversion...",
-                 "&Replace...", "Replace with &Regular Expression...", "Re&move Fields..."],
-    "Tag &Sources": ["&MusicBrainz...\tCtrl+I", "&Discogs...", "-", "&Cover Art Archive (cover only)..."],
-    "E&xtras": ["Cover &Art...", "&Embed Cover from File...", "E&xtract Cover...", "-", "&Rename Folder..."],
-    "&Help": ["&Contents\tF1", "-", "&About PR7-L..."],
-}
 
-SAMPLE = [  # (filename, title, artist, album, track, year, genre, length, bitrate, codec, tag)
-    ("01 Portal.flac", "Portal", "Paragon", "ELSEWORLD", "1/9", "2026", "Progressive Metal", "4:12", "1024 kbps",
-     "FLAC", "FLAC"),
-    ("02 Ruins of Elsewhere.flac", "Ruins of Elsewhere", "Paragon", "ELSEWORLD", "2/9", "2026",
-     "Progressive Metal", "5:47", "1078 kbps", "FLAC", "FLAC"),
-    ("03 Static Bloom.flac", "Static Bloom", "Paragon", "ELSEWORLD", "3/9", "2026", "Progressive Metal", "4:31",
-     "1051 kbps", "FLAC", "FLAC"),
-    ("04 Signal Lost.mp3", "Signal Lost", "Paragon", "ELSEWORLD", "4/9", "2026", "Progressive Metal", "3:58",
-     "320 kbps", "MPEG-1 Layer 3", "ID3v2.4"),
-    ("05 Arc Light.mp3", "Arc Light", "Paragon", "ELSEWORLD", "5/9", "2026", "Progressive Metal", "6:20",
-     "320 kbps", "MPEG-1 Layer 3", "ID3v2.4"),
-    ("06 The Long Collapse.flac", "The Long Collapse", "Paragon", "ELSEWORLD", "6/9", "2026", "Djent", "7:03",
-     "1092 kbps", "FLAC", "FLAC"),
-    ("07 Afterimage.m4a", "Afterimage", "Paragon", "ELSEWORLD", "7/9", "2026", "Progressive Metal", "4:44",
-     "256 kbps", "AAC", "MP4"),
-    ("08 Neon Requiem.flac", "Neon Requiem", "Paragon", "ELSEWORLD", "8/9", "2026", "Progressive Metal", "5:16",
-     "1066 kbps", "FLAC", "FLAC"),
-    ("09 Elseworld.flac", "Elseworld", "Paragon", "ELSEWORLD", "9/9", "2026", "Progressive Metal", "8:52",
-     "1101 kbps", "FLAC", "FLAC"),
+def _num(text: str):
+    head = text.split("/")[0].strip()
+    return (0, int(head), text) if head.isdigit() else (1, 0, text.lower())
+
+
+def _kbps(t: TagFile) -> str:
+    return f"{round(t.info.bitrate / 1000)} kbps" if t.info.bitrate else ""
+
+
+# Grid columns: (title, text, sort key)
+COLUMNS = [
+    ("Filename", lambda t: t.filename, lambda t: t.filename.lower()),
+    ("Title", lambda t: t.get("TITLE"), None), ("Artist", lambda t: t.get("ARTIST"), None),
+    ("Album", lambda t: t.get("ALBUM"), None), ("Track", lambda t: t.get("TRACK"), lambda t: _num(t.get("TRACK"))),
+    ("Year", lambda t: t.get("YEAR"), None), ("Genre", lambda t: t.get("GENRE"), None),
+    ("Length", lambda t: fmt_length(t.info.length), lambda t: t.info.length),
+    ("Bitrate", _kbps, lambda t: t.info.bitrate), ("Codec", lambda t: t.info.codec, None),
+    ("Tag", lambda t: t.tag_label, None), ("Path", lambda t: os.path.dirname(t.path), lambda t: t.path.lower()),
 ]
 
 
 class FileModel(QAbstractTableModel):
-    """The grid's rows as a plain Python list (Qt asks for each cell)."""
+    """The grid's rows as a plain Python list of TagFiles (Qt asks for each cell)."""
 
-    def __init__(self, rows, parent=None):
+    def __init__(self, parent=None):
         super().__init__(parent)
-        self.rows = rows
+        self.rows: list[TagFile] = []
         self.icon = file_icon("audio")
 
     def rowCount(self, parent=QModelIndex()):
@@ -67,22 +62,53 @@ class FileModel(QAbstractTableModel):
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
-            return COLUMNS[section].upper()
+            return COLUMNS[section][0].upper()
         return None
 
     def data(self, index, role=Qt.DisplayRole):
         if not index.isValid():
             return None
-        row = self.rows[index.row()]
-        if role == Qt.DisplayRole:
-            return row[index.column()] if index.column() < len(row) else r"D:\Music\Paragon\ELSEWORLD"
+        t = self.rows[index.row()]
+        if role in (Qt.DisplayRole, Qt.ToolTipRole):
+            return COLUMNS[index.column()][1](t)
         if role == Qt.DecorationRole and index.column() == 0:
             return self.icon
+        if role == Qt.TextAlignmentRole and COLUMNS[index.column()][0] in ("Track", "Length", "Bitrate"):
+            return int(Qt.AlignRight | Qt.AlignVCenter)
         return None
+
+    def set_rows(self, rows: list[TagFile]):
+        self.beginResetModel()
+        self.rows = rows
+        self.endResetModel()
+
+    def add_rows(self, rows: list[TagFile]):
+        if rows:
+            self.beginInsertRows(QModelIndex(), len(self.rows), len(self.rows) + len(rows) - 1)
+            self.rows.extend(rows)
+            self.endInsertRows()
+
+    def replace(self, row: int, t: TagFile):
+        self.rows[row] = t
+        self.dataChanged.emit(self.index(row, 0), self.index(row, len(COLUMNS) - 1))
+
+    def sort(self, column, order=Qt.AscendingOrder):
+        _, text, key = COLUMNS[column]
+        self.layoutAboutToBeChanged.emit()
+        self.rows.sort(key=key or (lambda t: text(t).lower()), reverse=order == Qt.DescendingOrder)
+        self.layoutChanged.emit()
 
 
 class FileView(QTreeView):
-    """The grid; a selected row gets one family-gradient band across its width (as PR7-Z's list)."""
+    """The grid; a selected row gets one family-gradient band across its width (as PR7-Z's list).
+    Folders and audio files dropped on it are added."""
+
+    dropped = Signal(list)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAcceptDrops(True)
+        self.setDragDropMode(QAbstractItemView.DropOnly)
 
     def drawRow(self, painter: QPainter, option, index):
         super().drawRow(painter, option, index)
@@ -97,16 +123,91 @@ class FileView(QTreeView):
             painter.drawLine(QPointF(r.left(), r.bottom() - 0.5), QPointF(r.right(), r.bottom() - 0.5))
             painter.restore()
 
+    def dragEnterEvent(self, e):
+        if e.mimeData().hasUrls():
+            e.acceptProposedAction()
 
+    def dragMoveEvent(self, e):
+        if e.mimeData().hasUrls():
+            e.acceptProposedAction()
+
+    def dropEvent(self, e):
+        paths = [u.toLocalFile() for u in e.mimeData().urls() if u.isLocalFile()]
+        if paths:
+            e.acceptProposedAction()
+            self.dropped.emit(paths)
+
+
+# ---------------------------------------------------------------------------------------------- cover box
+def shrink_image(data: bytes, max_side: int, quality: int = 90) -> bytes:
+    """The picture scaled down so its longer side is `max_side` (never up), as JPEG (PNG stays PNG)."""
+    img = QImage.fromData(data)
+    if img.isNull() or max(img.width(), img.height()) <= max_side:
+        return data
+    img = img.scaled(max_side, max_side, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+    buf = QBuffer()
+    buf.open(QIODevice.WriteOnly)
+    png = tags.image_mime(data) == "image/png"
+    img.save(buf, "PNG" if png else "JPEG", -1 if png else quality)
+    return bytes(buf.data())
+
+
+class CoverBox(QLabel):
+    """The panel's cover: shows the selection's front cover; right-click for Add / Extract / Remove ...;
+    an image file dropped on it replaces the cover (saved with the tag, as Mp3tag does)."""
+
+    def __init__(self, panel: "TagPanel"):
+        super().__init__()
+        self.panel = panel
+        self.setFixedSize(QSize(240, 240))
+        self.setAlignment(Qt.AlignCenter)
+        self.setAcceptDrops(True)
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(lambda pos: self.panel.cover_menu(self.mapToGlobal(pos)))
+        self.restyle()
+
+    def restyle(self):
+        self.setStyleSheet(f"background: {theme.WIDGET}; border: 1px solid {theme.PANEL_EDGE}; border-radius: 6px;"
+                           f" color: {theme.TEXT_DIM};")
+
+    def dragEnterEvent(self, e):
+        if e.mimeData().hasUrls() or e.mimeData().hasImage():
+            e.acceptProposedAction()
+
+    def dropEvent(self, e):
+        md = e.mimeData()
+        for u in md.urls():
+            if u.isLocalFile():
+                try:
+                    self.panel.set_pending_cover(Path(u.toLocalFile()).read_bytes())
+                except OSError:
+                    pass
+                return
+        if md.hasImage():
+            self.panel.set_pending_cover(_qimage_bytes(md.imageData()))
+
+
+def _qimage_bytes(img) -> bytes:
+    img = QImage(img)
+    buf = QBuffer()
+    buf.open(QIODevice.WriteOnly)
+    img.save(buf, "JPEG", 92)
+    return bytes(buf.data())
+
+
+# ---------------------------------------------------------------------------------------------- the panel
 class TagPanel(QScrollArea):
-    """Mp3tag's tag panel: one box per field; '< keep >' when the selected files differ."""
+    """Mp3tag's tag panel: one box per field; '< keep >' when the selected files differ. Edits wait for
+    Save (Ctrl+S); a changed box is marked with the accent border."""
+
+    changed = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWidgetResizable(True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setMinimumWidth(320)
-        self.setMaximumWidth(380)
+        self.setMaximumWidth(400)
         inner = QWidget()
         col = QVBoxLayout(inner)
         col.setContentsMargins(14, 8, 10, 10)
@@ -115,12 +216,16 @@ class TagPanel(QScrollArea):
         g = QGridLayout(box)
         g.setVerticalSpacing(5)
         self.fields: dict[str, QComboBox] = {}
-        for r, name in enumerate(PANEL_FIELDS):
-            lab = QLabel(name.upper())
+        self.dirty: set[str] = set()
+        self._filling = False
+        for r, (label, name) in enumerate(PANEL_FIELDS):
+            lab = QLabel(label.upper())
             lab.setProperty("role", "field")
             c = QComboBox()
             c.setEditable(True)
-            c.addItems(["< keep >", "< blank >"])
+            c.setInsertPolicy(QComboBox.NoInsert)
+            c.setObjectName(name)
+            c.editTextChanged.connect(lambda _t, n=name: self._edited(n))
             self.fields[name] = c
             g.addWidget(lab, r, 0)
             g.addWidget(c, r, 1)
@@ -128,32 +233,205 @@ class TagPanel(QScrollArea):
         col.addWidget(box)
         cover = QGroupBox("COVER")
         cl = QVBoxLayout(cover)
-        self.cover = QLabel()
-        self.cover.setFixedSize(QSize(240, 240))
-        self.cover.setAlignment(Qt.AlignCenter)
-        self.cover.setStyleSheet(f"background: {theme.WIDGET}; border: 1px solid {theme.PANEL_EDGE}; border-radius: 6px;")
+        self.cover = CoverBox(self)
         cl.addWidget(self.cover, 0, Qt.AlignHCenter)
         self.cover_info = QLabel("")
         self.cover_info.setProperty("role", "dim")
         self.cover_info.setAlignment(Qt.AlignCenter)
+        self.cover_info.setWordWrap(True)
         cl.addWidget(self.cover_info)
         col.addWidget(cover)
         col.addStretch(1)
         self.setWidget(inner)
+        self.files: list[TagFile] = []
+        self.pending_pictures: list[tags.Picture] | None = None  # None: leave the files' pictures alone
+        self.shown_picture: tags.Picture | None = None
+        self.max_cover = 0  # Options: shrink added covers to this many pixels (0 = as they are)
+        self.show_files([])
 
-    def set_cover(self, pixmap: QPixmap | None, info: str):
-        if pixmap is None or pixmap.isNull():
-            self.cover.setText("No cover")
+    # ---------------------------------------------------------------------------------------- fields
+    def _edited(self, name: str):
+        if self._filling:
+            return
+        self.dirty.add(name)
+        self.fields[name].setStyleSheet(f"QComboBox {{ border: 1px solid {theme.ACCENT}; }}")
+        self.changed.emit()
+
+    @property
+    def has_changes(self) -> bool:
+        return bool(self.dirty) or self.pending_pictures is not None
+
+    def show_files(self, files: list[TagFile]):
+        """Fill the boxes from the selection: the common value, or '< keep >' where they differ."""
+        self._filling = True
+        self.files = files
+        self.dirty.clear()
+        self.pending_pictures = None
+        for _, name in PANEL_FIELDS:
+            c = self.fields[name]
+            c.setStyleSheet("")
+            c.clear()
+            c.setEnabled(bool(files))
+            values = list(dict.fromkeys(f.get(name) for f in files))
+            c.addItems([KEEP, BLANK] + [v for v in values if v])
+            if not files:
+                c.setEditText("")
+            elif len(values) == 1:
+                c.setEditText(values[0])
+            else:
+                c.setEditText(KEEP)
+        self._filling = False
+        self._show_cover()
+
+    def changes(self) -> dict[str, list[str] | None]:
+        """The edited fields: a value, None to remove (empty or '< blank >'); '< keep >' changes nothing."""
+        out = {}
+        for name in self.dirty:
+            text = self.fields[name].currentText()
+            if text == KEEP:
+                continue
+            out[name] = None if text in ("", BLANK) else text.split(SEP)
+        return out
+
+    # ---------------------------------------------------------------------------------------- cover
+    def _show_cover(self):
+        pics = self.pending_pictures
+        if pics is not None:
+            pic = pics[0] if pics else None
+            self._paint_cover(pic, "No cover (on save)" if not pic else None)
+            return
+        fronts = []
+        for f in self.files:
+            front = next((p for p in f.pictures if p.type == tags.FRONT), f.pictures[0] if f.pictures else None)
+            fronts.append(front)
+        keys = {hashlib.sha1(p.data).hexdigest() if p else None for p in fronts}
+        if not self.files:
+            self._paint_cover(None, "")
+        elif len(keys) > 1:
+            self._paint_cover(None, KEEP)
         else:
-            self.cover.setPixmap(pixmap.scaled(234, 234, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            self._paint_cover(fronts[0], "No cover")
+
+    def _paint_cover(self, pic: tags.Picture | None, text: str | None):
+        self.shown_picture = pic
+        if pic is None:
+            self.cover.setPixmap(QPixmap())
+            self.cover.setText(text or "")
+            self.cover_info.setText("")
+            return
+        pm = QPixmap()
+        pm.loadFromData(pic.data)
+        if pm.isNull():
+            self.cover.setPixmap(QPixmap())
+            self.cover.setText("Unreadable picture")
+        else:
+            self.cover.setPixmap(pm.scaled(234, 234, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        info = tags.picture_info(pic)
+        if self.pending_pictures is not None:
+            info += "  (on save)"
         self.cover_info.setText(info)
+
+    def set_pending_cover(self, data: bytes | None):
+        """Replace the selection's cover with this picture (None: remove all pictures), on Save."""
+        if not self.files:
+            return
+        if data is not None and self.max_cover:
+            data = shrink_image(data, self.max_cover)
+        self.pending_pictures = [tags.Picture(data, type=tags.FRONT)] if data else []
+        self._show_cover()
+        self.changed.emit()
+
+    def cover_menu(self, at):
+        m = QMenu(self)
+        have = self.shown_picture is not None
+        m.addAction("Add cover...", self.add_cover).setEnabled(bool(self.files))
+        m.addAction("Extract cover...", self.extract_cover).setEnabled(have)
+        m.addAction("Resize cover...", self.resize_cover).setEnabled(have)
+        m.addAction("Remove cover", lambda: self.set_pending_cover(None)).setEnabled(bool(self.files))
+        m.addSeparator()
+        m.addAction("Copy cover", self.copy_cover).setEnabled(have)
+        m.addAction("Paste cover", self.paste_cover).setEnabled(
+            bool(self.files) and QGuiApplication.clipboard().mimeData().hasImage())
+        m.exec(at)
+
+    def add_cover(self):
+        start = os.path.dirname(self.files[0].path) if self.files else ""
+        path, _ = QFileDialog.getOpenFileName(self, "Add cover", start, "Images (*.jpg *.jpeg *.png *.gif *.bmp *.webp)")
+        if path:
+            self.set_pending_cover(Path(path).read_bytes())
+
+    def extract_cover(self):
+        pic = self.shown_picture
+        if not pic:
+            return
+        ext = {"image/png": ".png", "image/gif": ".gif", "image/bmp": ".bmp", "image/webp": ".webp"}.get(pic.mime, ".jpg")
+        start = os.path.join(os.path.dirname(self.files[0].path), "folder" + ext) if self.files else "folder" + ext
+        path, _ = QFileDialog.getSaveFileName(self, "Extract cover", start, f"Image (*{ext})")
+        if path:
+            Path(path).write_bytes(pic.data)
+
+    def resize_cover(self):
+        pic = self.shown_picture
+        if not pic:
+            return
+        w, h = tags.image_size(pic.data)
+        side, ok = QInputDialog.getInt(self, "Resize cover", f"Longer side in pixels (now {max(w, h)}):",
+                                       min(max(w, h), 1000) if w else 600, 50, 10000, 50)
+        if ok:
+            self.pending_pictures = [tags.Picture(shrink_image(pic.data, side), type=pic.type, desc=pic.desc)]
+            self._show_cover()
+            self.changed.emit()
+
+    def copy_cover(self):
+        if self.shown_picture:
+            QGuiApplication.clipboard().setImage(QImage.fromData(self.shown_picture.data))
+
+    def paste_cover(self):
+        img = QGuiApplication.clipboard().image()
+        if not img.isNull():
+            self.set_pending_cover(_qimage_bytes(img))
+
+    def restyle(self):
+        self.cover.restyle()
+        for name in self.dirty:
+            self.fields[name].setStyleSheet(f"QComboBox {{ border: 1px solid {theme.ACCENT}; }}")
+
+
+# ---------------------------------------------------------------------------------------------- the window
+# Menus: (text with shortcut after a tab, slot name or None for "not yet"); "-" is a separator.
+MENUS = {
+    "&File": [("Change &Directory...\tCtrl+D", "open_dir"), ("&Add Directory...\tCtrl+Shift+D", "add_dir"),
+              ("&Refresh\tF5", "refresh"), "-", ("&Save Tag\tCtrl+S", "save"), ("Remo&ve Tag\tCtrl+R", "remove_tag"),
+              ("&Undo\tCtrl+Z", "undo"), "-", ("&Export...\tCtrl+E", None), ("Create &Playlist...\tCtrl+L", None),
+              "-", ("&Options...\tCtrl+O", "options"), "-", ("E&xit\tAlt+F4", "close")],
+    "&Edit": [("Select &All\tCtrl+A", "select_all"), ("&Invert Selection", "invert_selection"), "-",
+              ("&Copy Tag\tCtrl+C", "copy_tag"), ("&Paste Tag\tCtrl+V", "paste_tag"), "-",
+              ("Remove from &List\tDel", "remove_from_list")],
+    "&View": [("&Tag Panel\tF6", "toggle_panel"), ("&Extended Tags...\tAlt+T", "extended_tags"), "-",
+              ("&Filter\tF3", None)],
+    "&Convert": [("&Tag - Filename\tAlt+1", None), ("&Filename - Tag\tAlt+2", None),
+                 ("Te&xt file - Tag\tAlt+3", None), ("Tag - T&ag\tAlt+5", None), "-",
+                 ("Auto-&numbering Wizard...\tCtrl+K", None)],
+    "&Actions": [("&Actions...\tAlt+6", None), ("Actions (&Quick)...\tAlt+7", None)],
+    "Tag &Sources": [("&MusicBrainz...\tCtrl+I", "musicbrainz"), ("&Discogs...", None), "-",
+                     ("&Cover Art Archive (cover only)...", "cover_only")],
+    "E&xtras": [("&Add Cover...", "add_cover"), ("E&xtract Cover...", "extract_cover"),
+                ("&Resize Cover...", "resize_cover"), ("Re&move Cover", "remove_cover")],
+    "&Help": [("&About PR7-L...", "about")],
+}
+TOOLBAR_SLOTS = {"opendir": "open_dir", "adddir": "add_dir", "save": "save", "removetag": "remove_tag",
+                 "undo": "undo", "musicbrainz": "musicbrainz", "cover": "cover_only"}
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, cover_path: str | None = None):
+    def __init__(self, paths: list[str] | None = None, client=None):
         super().__init__()
-        self.setWindowTitle(r"D:\Music\Paragon\ELSEWORLD - PR7-L")
+        self.client = client  # the MusicBrainz client (tests pass one with recorded answers)
+        self.folder = ""
+        self.undo_stack: list[list[tags.Snapshot]] = []
+        self.copied: dict[str, list[str]] | None = None
         self.resize(1440, 860)
+        self.actions_by_slot: dict[str, QAction] = {}
         bar = self.menuBar()
         for title, items in MENUS.items():
             m = bar.addMenu(title)
@@ -161,21 +439,36 @@ class MainWindow(QMainWindow):
                 if it == "-":
                     m.addSeparator()
                     continue
-                text, _, sc = it.partition("\t")
+                text, slot = it
+                text, _, sc = text.partition("\t")
                 a = QAction(text, self)
-                if sc:
+                if sc and sc != "Alt+F4":
                     a.setShortcut(QKeySequence(sc))
+                if slot:
+                    a.triggered.connect(getattr(self, slot))
+                    self.actions_by_slot[slot] = a
+                else:
+                    a.setEnabled(False)
+                    a.setToolTip("Coming in a later version")
                 m.addAction(a)
         central = QWidget()
         col = QVBoxLayout(central)
         col.setContentsMargins(0, 0, 0, 0)
         col.setSpacing(0)
-        col.addWidget(Header())
+        self.header = Header()
+        col.addWidget(self.header)
         self.toolbar = Toolbar()
+        for key, button in self.toolbar.keys.items():
+            if key not in TOOLBAR_SLOTS:
+                button.setEnabled(False)
+                button.setToolTip(button.toolTip() + " (coming in a later version)")
+        self.toolbar.triggered.connect(lambda n: getattr(self, TOOLBAR_SLOTS[n])() if n in TOOLBAR_SLOTS else None)
         col.addWidget(self.toolbar)
-        split = QSplitter(Qt.Horizontal)
+        self.split = QSplitter(Qt.Horizontal)
         self.panel = TagPanel()
-        split.addWidget(self.panel)
+        self.panel.max_cover = settings.get_int("cover_max_side", 0)
+        self.panel.changed.connect(self._update_title)
+        self.split.addWidget(self.panel)
         right = QWidget()
         rl = QVBoxLayout(right)
         rl.setContentsMargins(4, 8, 16, 12)
@@ -186,26 +479,338 @@ class MainWindow(QMainWindow):
         self.view.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.view.setUniformRowHeights(True)
         self.view.setIconSize(QSize(18, 18))
-        self.model = FileModel(SAMPLE)
+        self.view.setSortingEnabled(True)
+        self.model = FileModel()
         self.view.setModel(self.model)
-        widths = [250, 190, 110, 120, 60, 60, 150, 70, 90, 120, 80]
-        for i, w in enumerate(widths):
-            self.view.header().resizeSection(i, w)
+        self.view.header().setSortIndicator(-1, Qt.AscendingOrder)
+        widths = settings.get_list("column_widths") or [250, 190, 110, 120, 60, 60, 150, 70, 90, 120, 100]
+        for i, w in enumerate(widths[:len(COLUMNS) - 1]):
+            self.view.header().resizeSection(i, int(w))
         self.view.header().setSectionResizeMode(QHeaderView.Interactive)
         self.view.header().setStretchLastSection(True)
+        self.view.selectionModel().selectionChanged.connect(self._selection_changed)
+        self.view.dropped.connect(lambda paths: self.load(paths, add=True))
+        self.view.doubleClicked.connect(lambda _i: self.panel.fields["TITLE"].setFocus())
         rl.addWidget(self.view)
-        split.addWidget(right)
-        split.setStretchFactor(1, 1)
-        col.addWidget(split, 1)
+        self.split.addWidget(right)
+        self.split.setStretchFactor(1, 1)
+        col.addWidget(self.split, 1)
         self.setCentralWidget(central)
         sb = QStatusBar()
         sb.setSizeGripEnabled(False)
-        for text, stretch in (("9 file(s) selected", 0), ("0:50:43", 0), ("412.6 MB", 0), ("", 1)):
-            sb.addWidget(QLabel(text), stretch)
+        self.status = [QLabel(""), QLabel(""), QLabel(""), QLabel("")]
+        for lab, stretch in zip(self.status, (0, 0, 0, 1)):
+            sb.addWidget(lab, stretch)
         self.setStatusBar(sb)
-        pm = QPixmap(cover_path) if cover_path else None
-        self.panel.set_cover(pm, "5950 x 5950  JPEG  3.8 MB  Front" if pm else "")
-        for name, value in (("Artist", "Paragon"), ("Album", "ELSEWORLD"), ("Year", "2026"),
-                            ("Album Artist", "Paragon"), ("Genre", "< keep >"), ("Title", "< keep >"),
-                            ("Track", "< keep >"), ("Comment", ""), ("Composer", ""), ("Disc", "1/1")):
-            self.panel.fields[name].setEditText(value)
+        self._update_title()
+        if paths:
+            self.load(paths)
+        elif settings.get("last_dir") and os.path.isdir(settings.get("last_dir")):
+            self.load([settings.get("last_dir")])
+
+    # ---------------------------------------------------------------------------------------- loading
+    def _scan(self, paths: list[str]) -> list[str]:
+        sub = settings.get_bool("subdirectories", True)
+        out = []
+        for p in paths:
+            if os.path.isdir(p):
+                if sub:
+                    for root, dirs, files in os.walk(p):
+                        dirs.sort(key=str.lower)
+                        out.extend(os.path.join(root, f) for f in sorted(files, key=str.lower))
+                else:
+                    out.extend(os.path.join(p, f) for f in sorted(os.listdir(p), key=str.lower))
+            else:
+                out.append(p)
+        return [p for p in out if Path(p).suffix.lower() in tags.AUDIO_EXTENSIONS and os.path.isfile(p)]
+
+    def load(self, paths: list[str], add: bool = False):
+        """Change Directory (replace the list) or Add Directory (add to it), as Mp3tag does."""
+        if not self._confirm_discard():
+            return
+        files = self._scan(paths)
+        have = {os.path.normcase(t.path) for t in self.model.rows} if add else set()
+        rows, failed = [], 0
+        for i, p in enumerate(files):
+            if os.path.normcase(p) in have:
+                continue
+            try:
+                rows.append(tags.read(p))
+            except (tags.UnsupportedFile, OSError):
+                failed += 1
+            if i % 200 == 199:
+                self.status[3].setText(f"Reading {i + 1} of {len(files)} ...")
+                QApplication.processEvents()
+        if add:
+            self.model.add_rows(rows)
+        else:
+            self.model.set_rows(rows)
+            self.undo_stack.clear()
+            folder = paths[0] if len(paths) == 1 and os.path.isdir(paths[0]) else os.path.dirname(paths[0]) if paths else ""
+            self.folder = folder
+            if folder:
+                settings.set("last_dir", folder)
+        self.status[3].setText(f"{failed} file(s) couldn't be read" if failed else "")
+        self._selection_changed()
+        self._update_title()
+
+    def open_dir(self):
+        d = QFileDialog.getExistingDirectory(self, "Change directory", self.folder or settings.get("last_dir", ""))
+        if d:
+            self.load([d])
+
+    def add_dir(self):
+        d = QFileDialog.getExistingDirectory(self, "Add directory", self.folder or settings.get("last_dir", ""))
+        if d:
+            self.load([d], add=True)
+
+    def refresh(self):
+        if not self._confirm_discard():
+            return
+        rows = []
+        for t in self.model.rows:
+            try:
+                rows.append(tags.read(t.path))
+            except (tags.UnsupportedFile, OSError):
+                pass
+        self.model.set_rows(rows)
+        self._selection_changed()
+
+    # ---------------------------------------------------------------------------------------- selection
+    def selected_rows(self) -> list[int]:
+        return sorted(i.row() for i in self.view.selectionModel().selectedRows())
+
+    def selected(self) -> list[TagFile]:
+        return [self.model.rows[r] for r in self.selected_rows()]
+
+    def _selection_changed(self, *_):
+        files = self.selected()
+        if self.panel.has_changes and self.panel.files and self.panel.files != files:
+            if self._ask_save(self.panel.files):
+                self._write(self.panel.files, self.panel.changes(), self.panel.pending_pictures)
+                files = self.selected()
+        self.panel.show_files(files)
+        shown = files or self.model.rows
+        n = len(files)
+        self.status[0].setText(f"{n} file(s) selected" if n else f"{len(self.model.rows)} file(s)")
+        self.status[1].setText(fmt_length(sum(t.info.length for t in shown)) or "0:00")
+        size = sum(t.size for t in shown)
+        self.status[2].setText(f"{size / 1048576:.1f} MB" if size >= 1048576 else f"{size / 1024:.0f} KB")
+        self._update_title()
+
+    def _ask_save(self, files) -> bool:
+        r = QMessageBox.question(self, "PR7-L", f"Save the changes to {len(files)} file(s)?",
+                                 QMessageBox.Save | QMessageBox.Discard, QMessageBox.Save)
+        return r == QMessageBox.Save
+
+    def _confirm_discard(self) -> bool:
+        if self.panel.has_changes and self.panel.files:
+            if self._ask_save(self.panel.files):
+                self._write(self.panel.files, self.panel.changes(), self.panel.pending_pictures)
+            self.panel.show_files([])
+        return True
+
+    def _update_title(self):
+        star = "*" if self.panel.has_changes else ""
+        self.setWindowTitle(f"{star}{self.folder or 'PR7-L'} - PR7-L" if self.folder else f"{star}PR7-L")
+
+    def select_all(self):
+        self.view.selectAll()
+
+    def invert_selection(self):
+        sel = self.view.selectionModel()
+        from PySide6.QtCore import QItemSelection, QItemSelectionModel
+        all_rows = QItemSelection(self.model.index(0, 0), self.model.index(len(self.model.rows) - 1, len(COLUMNS) - 1))
+        sel.select(all_rows, QItemSelectionModel.Toggle | QItemSelectionModel.Rows)
+
+    def remove_from_list(self):
+        rows = self.selected_rows()
+        self.panel.show_files([])
+        for r in reversed(rows):
+            self.model.beginRemoveRows(QModelIndex(), r, r)
+            del self.model.rows[r]
+            self.model.endRemoveRows()
+        self._selection_changed()
+
+    # ---------------------------------------------------------------------------------------- writing
+    def _options(self) -> tags.WriteOptions:
+        return tags.WriteOptions(id3v2_version=settings.get_int("id3v2_version", 3),
+                                 id3v1=settings.get_bool("id3v1", True),
+                                 preserve_mtime=settings.get_bool("preserve_mtime", False))
+
+    def _reload(self, files: list[TagFile]):
+        index = {os.path.normcase(t.path): i for i, t in enumerate(self.model.rows)}
+        for f in files:
+            i = index.get(os.path.normcase(f.path))
+            if i is None:
+                continue
+            try:
+                self.model.replace(i, tags.read(f.path))
+            except (tags.UnsupportedFile, OSError):
+                pass
+
+    def _write(self, files: list[TagFile], changes: dict, pictures) -> int:
+        """Save `changes` (and pictures, unless None) to the files; one Undo step. Returns how many failed."""
+        if not files or (not changes and pictures is None):
+            return 0
+        snaps, failed = [], []
+        options = self._options()
+        for f in files:
+            try:
+                snap = tags.snapshot(f.path)
+                tags.save(f.path, changes, pictures, options)
+                snaps.append(snap)
+            except (tags.UnsupportedFile, OSError, Exception) as e:  # noqa: BLE001 - report every file's error
+                failed.append(f"{f.filename}: {e}")
+        if snaps:
+            self.undo_stack.append(snaps)
+        self._reload(files)
+        self.panel.show_files(self.selected())
+        if failed:
+            QMessageBox.warning(self, "Save tag", "These files couldn't be saved:\n\n" + "\n".join(failed[:20]))
+        self._update_title()
+        return len(failed)
+
+    def save(self):
+        files = self.panel.files or self.selected()
+        n = len(files)
+        failed = self._write(files, self.panel.changes(), self.panel.pending_pictures)
+        if files:
+            self.status[3].setText(f"Saved {n - failed} file(s)")
+
+    def remove_tag(self, confirm: bool = True):
+        files = self.selected()
+        if not files:
+            return
+        if confirm and QMessageBox.question(
+                self, "Remove tag", f"Remove the tags (and covers) from {len(files)} file(s)?",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
+            return
+        snaps = []
+        for f in files:
+            try:
+                snaps.append(tags.snapshot(f.path))
+                tags.remove_tags(f.path, self._options())
+            except (tags.UnsupportedFile, OSError):
+                pass
+        self.undo_stack.append(snaps)
+        self._reload(files)
+        self.panel.show_files(self.selected())
+
+    def undo(self):
+        if not self.undo_stack:
+            self.status[3].setText("Nothing to undo")
+            return
+        snaps = self.undo_stack.pop()
+        for s in snaps:
+            try:
+                tags.restore(s, self._options())
+            except (tags.UnsupportedFile, OSError):
+                pass
+        self._reload([TagFile(path=s.path, kind="") for s in snaps])
+        self.panel.show_files(self.selected())
+        self.status[3].setText(f"Undone: {len(snaps)} file(s)")
+
+    def copy_tag(self):
+        f = self.selected()
+        if f:
+            self.copied = {k: list(v) for k, v in f[0].fields.items()}
+            self._copied_pictures = list(f[0].pictures)
+            self.status[3].setText(f"Tag of {f[0].filename} copied")
+
+    def paste_tag(self):
+        files = self.selected()
+        if self.copied is None or not files:
+            return
+        changes = {k: None for f in files for k in f.fields}  # Mp3tag's Paste Tag replaces the whole tag
+        changes.update(self.copied)
+        self._write(files, changes, list(self._copied_pictures))
+
+    # ---------------------------------------------------------------------------------------- covers
+    def add_cover(self):
+        self.panel.add_cover()
+
+    def extract_cover(self):
+        self.panel.extract_cover()
+
+    def resize_cover(self):
+        self.panel.resize_cover()
+
+    def remove_cover(self):
+        self.panel.set_pending_cover(None)
+
+    # ---------------------------------------------------------------------------------------- dialogs
+    def _client(self):
+        if self.client is None:
+            from .musicbrainz import Client
+            self.client = Client()
+        return self.client
+
+    def musicbrainz(self, cover_only: bool = False):
+        from .musicbrainz_dialog import MusicBrainzDialog
+        files = self.selected() or list(self.model.rows)
+        if not files:
+            QMessageBox.information(self, "MusicBrainz", "Open a folder and select the files of one album first.")
+            return
+        self._confirm_discard()
+        files = [self.model.rows[i] for i in self.selected_rows()] or list(self.model.rows)
+        dlg = MusicBrainzDialog(files, self._client(), self, cover_only=cover_only, options=self._options())
+        dlg.cover_size.setCurrentText(settings.get("mb_cover_size", "1200"))
+        dlg.save_cover.setChecked(settings.get_bool("mb_save_cover", True))
+        dlg.folder_jpg.setChecked(settings.get_bool("mb_folder_jpg", False))
+        self._mb_dialog = dlg  # tests drive the open dialog
+        if dlg.exec() and dlg.snapshots:
+            self.undo_stack.append(dlg.snapshots)
+            self._reload(files)
+            self.panel.show_files(self.selected())
+            self.status[3].setText(f"MusicBrainz: {len(dlg.snapshots)} file(s) tagged")
+        settings.set("mb_cover_size", dlg.cover_size.currentText())
+        settings.set("mb_save_cover", dlg.save_cover.isChecked())
+        settings.set("mb_folder_jpg", dlg.folder_jpg.isChecked())
+
+    def cover_only(self):
+        self.musicbrainz(cover_only=True)
+
+    def extended_tags(self):
+        from .dialogs import ExtendedTagsDialog
+        files = self.selected()
+        if not files:
+            return
+        self._confirm_discard()
+        files = self.selected()
+        dlg = ExtendedTagsDialog(files, self)
+        if dlg.exec():
+            self._write(files, dlg.changes(), None)
+
+    def options(self):
+        from .dialogs import OptionsDialog
+        dlg = OptionsDialog(self)
+        if dlg.exec():
+            dlg.apply()
+            self.panel.max_cover = settings.get_int("cover_max_side", 0)
+            self.set_finish(settings.get("finish", "obsidian"))
+
+    def set_finish(self, name: str):
+        theme.set_finish(name)
+        app = QApplication.instance()
+        app.setPalette(theme.palette())
+        app.setStyleSheet(theme.stylesheet())
+        self.toolbar.setStyleSheet("")
+        self.panel.restyle()
+        self.header.update()
+        for w in self.findChildren(QWidget):
+            w.update()
+
+    def toggle_panel(self):
+        self.panel.setVisible(not self.panel.isVisible())
+
+    def about(self):
+        QMessageBox.about(self, "About PR7-L",
+                          f"<b>Paragon PR7-L</b> {__version__}<br>A tag editor that works the way Mp3tag works.<br><br>"
+                          "Tags: mutagen (GPL-2.0-or-later). Tag sources: MusicBrainz and the Cover Art Archive.")
+
+    def closeEvent(self, e):
+        self._confirm_discard()
+        settings.set("column_widths", [self.view.header().sectionSize(i) for i in range(len(COLUMNS) - 1)])
+        settings.set("geometry", bytes(self.saveGeometry().toHex()).decode())
+        super().closeEvent(e)
