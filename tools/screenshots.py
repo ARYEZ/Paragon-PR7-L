@@ -83,3 +83,24 @@ n.show()
 app.processEvents()
 n.grab().save(str(out / "auto_numbering.png"))
 print("ok")
+
+from pr7l.actions_dialog import ActionEditor, ActionsDialog, GroupEditor  # noqa: E402
+from pr7l import actions as _actions  # noqa: E402
+a = ActionsDialog(len(w.model.rows), w)
+a.list.item(0).setCheckState(__import__("PySide6.QtCore").QtCore.Qt.Checked)
+a.show()
+app.processEvents()
+a.grab().save(str(out / "actions.png"))
+g = GroupEditor({"name": "Tidy an album", "actions": [
+    {"type": "replace", "field": "_FILENAME", "find": "_", "replace": " "},
+    {"type": "case", "field": "TITLE;ARTIST;ALBUM", "mode": "mixed"},
+    {"type": "regexp", "field": "TITLE", "regex": r"\s*\(feat\. (.+)\)", "replace": " [with $1]"},
+    {"type": "remove", "fields": "COMMENT;ENCODEDBY"}, {"type": "export_cover", "file": "folder"}]}, w)
+g.show()
+app.processEvents()
+g.grab().save(str(out / "action_group.png"))
+e = ActionEditor(_actions.new_action("case"), w)
+e.show()
+app.processEvents()
+e.grab().save(str(out / "action_case.png"))
+print("ok")

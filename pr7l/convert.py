@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from . import script
 from .tags import SEP, TagFile
@@ -34,6 +34,8 @@ class Planned:
     new: str = ""                                   # Tag - Filename: the new path
     changes: dict | None = None                     # the others: field -> values (None removes)
     error: str = ""                                 # why this file is left as it is
+    pictures: list | None = None                    # actions: the file's new pictures (None: unchanged)
+    exports: list = field(default_factory=list)     # actions: (path, image bytes) to write next to the file
 
 
 def clean_component(text: str) -> str:

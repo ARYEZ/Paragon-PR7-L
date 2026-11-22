@@ -410,7 +410,9 @@ MENUS = {
     "&Convert": [("&Tag - Filename\tAlt+1", "tag_to_filename"), ("&Filename - Tag\tAlt+2", "filename_to_tag"),
                  ("Te&xt file - Tag\tAlt+3", "text_to_tag"), ("Tag - T&ag\tAlt+5", "tag_to_tag"), "-",
                  ("Auto-&numbering Wizard...\tCtrl+K", "auto_number")],
-    "&Actions": [("&Actions...\tAlt+6", None), ("Actions (&Quick)...\tAlt+7", None)],
+    "&Actions": [("&Actions...\tAlt+6", "run_actions"), ("Actions (&Quick)...\tAlt+7", "quick_action"), "-",
+                 ("&Case Conversion...", "quick_case"), ("&Replace...", "quick_replace"),
+                 ("Replace with Regular E&xpression...", "quick_regexp"), ("Re&move Fields...", "quick_remove")],
     "Tag &Sources": [("&MusicBrainz...\tCtrl+I", "musicbrainz"), ("&Discogs...", None), "-",
                      ("&Cover Art Archive (cover only)...", "cover_only")],
     "E&xtras": [("&Add Cover...", "add_cover"), ("E&xtract Cover...", "extract_cover"),
@@ -420,7 +422,7 @@ MENUS = {
 TOOLBAR_SLOTS = {"opendir": "open_dir", "adddir": "add_dir", "save": "save", "removetag": "remove_tag",
                  "undo": "undo", "musicbrainz": "musicbrainz", "cover": "cover_only", "tag2file": "tag_to_filename",
                  "file2tag": "filename_to_tag", "text2tag": "text_to_tag", "tag2tag": "tag_to_tag",
-                 "number": "auto_number"}
+                 "number": "auto_number", "actions": "run_actions"}
 
 
 class MainWindow(QMainWindow):
@@ -781,33 +783,100 @@ class MainWindow(QMainWindow):
                     pass
 
     def apply_plan(self, planned) -> int:
-        """Write each planned file's own changes (or rename it); one Undo step. Returns how many failed."""
+        """Apply each planned file's own changes: tags and pictures first (at the file's present name), covers
+        exported, then renames; all one Undo step (exported images stay). Returns how many failed."""
         from .convert import apply_renames
-        step, failed = [], []
+        step, failed, exported = [], [], 0
+        options = self._options()
+        for p in planned:
+            if p.error or (not p.changes and p.pictures is None):
+                continue
+            try:
+                snap = tags.snapshot(p.tf.path)
+                tags.save(p.tf.path, p.changes or {}, p.pictures, options)
+                step.append(snap)
+            except Exception as e:  # noqa: BLE001 - report every file's error
+                failed.append(f"{p.tf.filename}: {e}")
+        self._reload([p.tf for p in planned if not p.error and (p.changes or p.pictures is not None)])
+        for p in planned:
+            for path, data in p.exports if not p.error else []:
+                try:
+                    os.makedirs(os.path.dirname(path), exist_ok=True)
+                    Path(path).write_bytes(data)
+                    exported += 1
+                except OSError as e:
+                    failed.append(f"{os.path.basename(path)}: {e}")
         renames = [p for p in planned if p.new and not p.error]
         if renames:
             done, errors = apply_renames(renames)
             failed += errors
             step += done
             self._renamed([(r.old, r.new) for r in done])
-        options = self._options()
-        for p in planned:
-            if p.error or not p.changes:
-                continue
-            try:
-                snap = tags.snapshot(p.tf.path)
-                tags.save(p.tf.path, p.changes, None, options)
-                step.append(snap)
-            except Exception as e:  # noqa: BLE001 - report every file's error
-                failed.append(f"{p.tf.filename}: {e}")
         if step:
             self.undo_stack.append(step)
-        self._reload([p.tf for p in planned if p.changes])
         self.panel.show_files(self.selected())
-        self.status[3].setText(f"{len(step)} file(s) changed" + (f", {len(failed)} failed" if failed else ""))
+        files = len({os.path.normcase(getattr(x, "path", getattr(x, "old", ""))) for x in step})
+        self.status[3].setText(f"{files} file(s) changed" + (f", {exported} cover(s) exported" if exported else "")
+                               + (f", {len(failed)} failed" if failed else ""))
         if failed:
             QMessageBox.warning(self, "PR7-L", "These files couldn't be changed:\n\n" + "\n".join(failed[:20]))
         return len(failed)
+
+    # ---------------------------------------------------------------------------------------- actions
+    def apply_actions(self, chosen: list[dict], files: list[TagFile] | None = None) -> int:
+        from . import actions, script
+        files = files if files is not None else self.selected()
+        if not chosen or not files:
+            return 0
+        try:
+            planned = actions.plan(chosen, files)
+        except script.ScriptError as e:
+            QMessageBox.warning(self, "Actions", str(e))
+            return 1
+        if not any(p.changes or p.pictures is not None or p.exports or p.new for p in planned if not p.error):
+            self.status[3].setText("The actions changed nothing")
+            return 0
+        return self.apply_plan(planned)
+
+    def run_actions(self):
+        from .actions_dialog import ActionsDialog
+        files = self._converter_files("Actions")
+        if not files:
+            return
+        dlg = ActionsDialog(len(files), self)
+        self._dialog = dlg  # tests drive the open dialog
+        if dlg.exec():
+            self.apply_actions(dlg.chosen(), files)
+
+    def quick_action(self, kind: str | None = None):
+        """Actions (Quick): one action, run once and not saved, as Mp3tag's Alt+7."""
+        from . import actions
+        from .actions_dialog import ActionEditor, choose_type
+        files = self._converter_files("Actions (Quick)")
+        if not files:
+            return
+        kind = kind or choose_type(self)
+        if not kind:
+            return
+        key = f"quick_{kind}"
+        saved = settings.get_list(key)
+        dlg = ActionEditor(saved[0] if saved and isinstance(saved[0], dict) else actions.new_action(kind), self)
+        self._dialog = dlg
+        if dlg.exec():
+            settings.set(key, [dlg.value()])  # the form comes back filled in next time
+            self.apply_actions([dlg.value()], files)
+
+    def quick_case(self):
+        self.quick_action("case")
+
+    def quick_replace(self):
+        self.quick_action("replace")
+
+    def quick_regexp(self):
+        self.quick_action("regexp")
+
+    def quick_remove(self):
+        self.quick_action("remove")
 
     def _converter_files(self, title: str):
         self._confirm_discard()

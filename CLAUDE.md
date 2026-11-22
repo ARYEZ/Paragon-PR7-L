@@ -25,6 +25,10 @@ Python; explain the why of changes.
   `guess(pattern, text)` reads fields back out (Filename/Text - Tag). `pr7l/convert.py` (no Qt): each converter
   returns `Planned` items (new path or changes, or an error) for the preview; the window's `apply_plan` applies
   them as one Undo step, which may hold `convert.Rename` records next to tag snapshots.
+- `pr7l/actions.py` (no Qt): action dicts `{"type": ..., form keys}` (`TYPES` holds each type's form);
+  `plan(actions, files)` runs them in memory per file and returns `Planned` (changes, `new` path for `_FILENAME`,
+  `pictures`, `exports`). `apply_plan` saves tags first, then exports, then renames (Undo reverses renames first).
+  `actions_dialog.py`: groups in the `action_groups` setting (JSON); the forms are built from `TYPES`.
 - `pr7l/cache.py`: SQLite cache of what `tags.read` gave (fields, info, picture *meta*), keyed by path, valid
   while size + `st_mtime_ns` match; bump `cache.VERSION` whenever reading changes. The window reads through
   `MainWindow._read` (cache, else read + store); rows are `slim()` (no picture bytes: `load_pictures()` on demand,

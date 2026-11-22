@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0
+
+- **Actions** (Alt+6), as in Mp3tag: named action groups, ticked and run in order on the selected files, kept between
+  runs; New / Edit / Copy / Delete / Move. Action types: Replace, Replace with regular expression, Case conversion
+  (lower, UPPER, First letter, Mixed Case; characters to capitalise after; exceptions such as AC/DC, feat.),
+  Format value, Remove fields, Remove fields except, Guess values, Split field by separator, Merge duplicate fields,
+  Import cover from file, Export cover to file. Fields: one, several with `;`, `_ALL`, and `_FILENAME` to rename.
+- **Actions (Quick)** (Alt+7) and Case Conversion / Replace / Regular Expression / Remove Fields in the Actions
+  menu: one action, run once; its form is remembered.
+- A run is one Undo step (tags, covers and renames; exported images stay). Three example groups to start from.
+
 ## 0.2.0
 
 - Convert menu, as in Mp3tag: **Tag - Filename** (Alt+1; a `\\` makes folders, illegal characters become `-`),
