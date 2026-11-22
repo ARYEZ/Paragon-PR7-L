@@ -44,11 +44,16 @@ class Library:
 
     def _open(self) -> sqlite3.Connection:
         db = sqlite3.connect(self.path)
-        if db.execute("PRAGMA user_version").fetchone()[0] != VERSION:
-            db.execute("DROP TABLE IF EXISTS files")
-            db.execute(f"PRAGMA user_version = {VERSION}")
-        db.execute("CREATE TABLE IF NOT EXISTS files (path TEXT PRIMARY KEY, size INTEGER, mtime INTEGER, data TEXT)")
-        db.commit()
+        try:
+            if db.execute("PRAGMA user_version").fetchone()[0] != VERSION:
+                db.execute("DROP TABLE IF EXISTS files")
+                db.execute(f"PRAGMA user_version = {VERSION}")
+            db.execute("CREATE TABLE IF NOT EXISTS files (path TEXT PRIMARY KEY, size INTEGER, mtime INTEGER, "
+                       "data TEXT)")
+            db.commit()
+        except sqlite3.DatabaseError:
+            db.close()  # Windows can't delete a file that's still open
+            raise
         return db
 
     def get(self, path: str, st: os.stat_result) -> TagFile | None:
