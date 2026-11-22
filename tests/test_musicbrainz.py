@@ -124,7 +124,7 @@ def test_503_is_retried_then_reported():
         return (503, b"") if len(calls) < 3 else (200, (DATA / "mb/search.json").read_bytes())
     assert mb.Client(fetch=busy, pause=0).search("Paragon", "ELSEWORLD")[0].id == REL
     assert len(calls) == 3
-    with pytest.raises(mb.LookupFailed, match="503"):
+    with pytest.raises(mb.LookupFailed, match="busy"):
         mb.Client(fetch=lambda u, h: (503, b""), pause=0).search("a", "b")
 
     def down(url, headers):
@@ -191,7 +191,12 @@ live = pytest.mark.skipif(not os.environ.get("PR7L_LIVE"), reason="talks to musi
 @live
 def test_live_search_lookup_and_cover():
     c = mb.Client()
-    results = c.search("Radiohead", "OK Computer")
+    try:
+        results = c.search("Radiohead", "OK Computer")
+    except mb.LookupFailed as e:
+        if "busy" in str(e):  # MusicBrainz limits busy shared addresses (CI runners): not PR7-L's fault
+            pytest.skip(str(e))
+        raise
     assert results and results[0].score >= 90 and "OK Computer" in results[0].title
     assert all(r.id and mb.MBID.fullmatch(r.id) for r in results)
     got_cover = False

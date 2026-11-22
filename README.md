@@ -23,6 +23,8 @@ PR7-W, the PR7 plugins): tag panel and cover on the left, the file grid on the r
 - **Convert**: Tag - Filename (Alt+1), Filename - Tag (Alt+2), Text file - Tag (Alt+3), Tag - Tag (Alt+5)
   with Mp3tag's format strings (`$num(%track%,2) - %title%`, `$caps(%title%)` ...), a preview before OK, and
   Undo (renames too). **Auto-numbering Wizard** (Ctrl+K).
+- **Fast reopening**: a file cache, so a big library is read once; afterwards only new or changed files are
+  read (F5 reads everything again). The folders that were open come back when PR7-L starts.
 - **Explorer**: "PR7-L" on the right-click menu of folders and audio files.
 - **Finishes**: OBSIDIAN and AURORA (Options).
 

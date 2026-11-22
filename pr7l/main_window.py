@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import os
 from pathlib import Path
 
@@ -300,17 +299,16 @@ class TagPanel(QScrollArea):
             pic = pics[0] if pics else None
             self._paint_cover(pic, "No cover (on save)" if not pic else None)
             return
-        fronts = []
-        for f in self.files:
-            front = next((p for p in f.pictures if p.type == tags.FRONT), f.pictures[0] if f.pictures else None)
-            fronts.append(front)
-        keys = {hashlib.sha1(p.data).hexdigest() if p else None for p in fronts}
+        # Compared by their fingerprints: only the one cover shown is read from its file.
+        keys = {(m.sha1 if m else None) for m in (f.front_meta() for f in self.files)}
         if not self.files:
             self._paint_cover(None, "")
         elif len(keys) > 1:
             self._paint_cover(None, KEEP)
         else:
-            self._paint_cover(fronts[0], "No cover")
+            pics = self.files[0].load_pictures()
+            front = next((p for p in pics if p.type == tags.FRONT), pics[0] if pics else None)
+            self._paint_cover(front, "No cover")
 
     def _paint_cover(self, pic: tags.Picture | None, text: str | None):
         self.shown_picture = pic
@@ -429,6 +427,7 @@ class MainWindow(QMainWindow):
     def __init__(self, paths: list[str] | None = None, client=None):
         super().__init__()
         self.client = client  # the MusicBrainz client (tests pass one with recorded answers)
+        self._library = False  # the file cache: opened on first use
         self.folder = ""
         self.undo_stack: list[list] = []  # each step: tag snapshots and/or convert.Rename records
         self.copied: dict[str, list[str]] | None = None
@@ -507,8 +506,12 @@ class MainWindow(QMainWindow):
         self._update_title()
         if paths:
             self.load(paths)
-        elif settings.get("last_dir") and os.path.isdir(settings.get("last_dir")):
-            self.load([settings.get("last_dir")])
+        else:  # what was open last time: the folder from Change Directory and every one added to it
+            last = [p for p in settings.get_list("open_paths") if isinstance(p, str) and os.path.exists(p)]
+            if not last and settings.get("last_dir") and os.path.isdir(settings.get("last_dir")):
+                last = [settings.get("last_dir")]  # 0.1/0.2 kept only this
+            if last:
+                self.load(last)
 
     # ---------------------------------------------------------------------------------------- loading
     def _scan(self, paths: list[str]) -> list[str]:
@@ -532,17 +535,20 @@ class MainWindow(QMainWindow):
             return
         files = self._scan(paths)
         have = {os.path.normcase(t.path) for t in self.model.rows} if add else set()
-        rows, failed = [], 0
+        rows, failed, fresh = [], 0, 0
+        self.read_count = 0
         for i, p in enumerate(files):
             if os.path.normcase(p) in have:
                 continue
             try:
-                rows.append(tags.read(p))
+                rows.append(self._read(p))
             except (tags.UnsupportedFile, OSError):
                 failed += 1
-            if i % 200 == 199:
-                self.status[3].setText(f"Reading {i + 1} of {len(files)} ...")
+            if i % 50 == 49:
+                self.status[3].setText(f"Reading {i + 1} of {len(files)} ({self.read_count} new or changed) ...")
                 QApplication.processEvents()
+        if self.library:
+            self.library.commit()
         if add:
             self.model.add_rows(rows)
         else:
@@ -552,7 +558,13 @@ class MainWindow(QMainWindow):
             self.folder = folder
             if folder:
                 settings.set("last_dir", folder)
-        self.status[3].setText(f"{failed} file(s) couldn't be read" if failed else "")
+        sources = [os.path.abspath(p) for p in paths]
+        if add:
+            sources = settings.get_list("open_paths") + sources
+        settings.set("open_paths", list(dict.fromkeys(sources)))
+        self.status[3].setText(f"{failed} file(s) couldn't be read" if failed else
+                               f"{len(rows)} file(s), {self.read_count} read from disk, the rest from the cache"
+                               if self.library and rows else "")
         self._selection_changed()
         self._update_title()
 
@@ -570,13 +582,45 @@ class MainWindow(QMainWindow):
         if not self._confirm_discard():
             return
         rows = []
-        for t in self.model.rows:
+        for i, t in enumerate(self.model.rows):  # F5 reads every file again, cache or not (Mp3tag's Refresh)
             try:
-                rows.append(tags.read(t.path))
+                rows.append(self._read(t.path, use_cache=False))
             except (tags.UnsupportedFile, OSError):
                 pass
+            if i % 50 == 49:
+                self.status[3].setText(f"Reading {i + 1} of {len(self.model.rows)} ...")
+                QApplication.processEvents()
+        if self.library:
+            self.library.commit()
         self.model.set_rows(rows)
+        self.status[3].setText("")
         self._selection_changed()
+
+    # ---------------------------------------------------------------------------------------- the cache
+    @property
+    def library(self):
+        """The file cache, opened on first use; None if it can't be (then every file is read from disk)."""
+        if self._library is False:
+            from .cache import Library
+            try:
+                self._library = Library() if settings.get_bool("use_cache", True) else None
+            except Exception:  # noqa: BLE001 - a cache that won't open must never stop PR7-L
+                self._library = None
+        return self._library
+
+    def _read(self, path: str, use_cache: bool = True) -> TagFile:
+        """A file for the list: from the cache when it's unchanged on disk, else read (and cached), slim."""
+        lib = self.library
+        st = os.stat(path)
+        if lib and use_cache:
+            tf = lib.get(path, st)
+            if tf is not None:
+                return tf
+        tf = tags.read(path)
+        self.read_count = getattr(self, "read_count", 0) + 1
+        if lib:
+            lib.put(tf, st)
+        return tf.slim()
 
     # ---------------------------------------------------------------------------------------- selection
     def selected_rows(self) -> list[int]:
@@ -647,9 +691,11 @@ class MainWindow(QMainWindow):
             if i is None:
                 continue
             try:
-                self.model.replace(i, tags.read(f.path))
+                self.model.replace(i, self._read(f.path, use_cache=False))
             except (tags.UnsupportedFile, OSError):
                 pass
+        if self.library:
+            self.library.commit()
 
     def _write(self, files: list[TagFile], changes: dict, pictures) -> int:
         """Save `changes` (and pictures, unless None) to the files; one Undo step. Returns how many failed."""
@@ -726,9 +772,11 @@ class MainWindow(QMainWindow):
         index = {os.path.normcase(t.path): i for i, t in enumerate(self.model.rows)}
         for old, new in moves:
             i = index.get(os.path.normcase(old))
+            if self.library:
+                self.library.forget(old)
             if i is not None:
                 try:
-                    self.model.replace(i, tags.read(new))
+                    self.model.replace(i, self._read(new, use_cache=False))
                 except (tags.UnsupportedFile, OSError):
                     pass
 
@@ -804,7 +852,7 @@ class MainWindow(QMainWindow):
         f = self.selected()
         if f:
             self.copied = {k: list(v) for k, v in f[0].fields.items()}
-            self._copied_pictures = list(f[0].pictures)
+            self._copied_pictures = list(f[0].load_pictures())
             self.status[3].setText(f"Tag of {f[0].filename} copied")
 
     def paste_tag(self):
@@ -876,6 +924,9 @@ class MainWindow(QMainWindow):
         dlg = OptionsDialog(self)
         if dlg.exec():
             dlg.apply()
+            if self._library and not settings.get_bool("use_cache", True):
+                self._library.close()
+            self._library = False  # opened again (or not) by the next read, as the option says
             self.panel.max_cover = settings.get_int("cover_max_side", 0)
             self.set_finish(settings.get("finish", "obsidian"))
 
@@ -900,6 +951,9 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, e):
         self._confirm_discard()
+        if self.library:
+            self.library.close()
+            self._library = False
         settings.set("column_widths", [self.view.header().sectionSize(i) for i in range(len(COLUMNS) - 1)])
         settings.set("geometry", bytes(self.saveGeometry().toHex()).decode())
         super().closeEvent(e)

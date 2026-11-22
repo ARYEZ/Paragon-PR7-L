@@ -56,4 +56,5 @@ def test_dump(tmp_path):
 def test_tests_never_touch_the_real_settings(qapp, tmp_path_factory):
     from pr7l import settings
     path = settings._s().fileName()
-    assert path.endswith(".ini") and str(tmp_path_factory.getbasetemp()) in path
+    assert path.endswith(".ini")
+    assert Path(path).resolve().is_relative_to(Path(tmp_path_factory.getbasetemp()).resolve())

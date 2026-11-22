@@ -25,6 +25,10 @@ Python; explain the why of changes.
   `guess(pattern, text)` reads fields back out (Filename/Text - Tag). `pr7l/convert.py` (no Qt): each converter
   returns `Planned` items (new path or changes, or an error) for the preview; the window's `apply_plan` applies
   them as one Undo step, which may hold `convert.Rename` records next to tag snapshots.
+- `pr7l/cache.py`: SQLite cache of what `tags.read` gave (fields, info, picture *meta*), keyed by path, valid
+  while size + `st_mtime_ns` match; bump `cache.VERSION` whenever reading changes. The window reads through
+  `MainWindow._read` (cache, else read + store); rows are `slim()` (no picture bytes: `load_pictures()` on demand,
+  `front_meta()` to compare covers). Tests point `PR7L_CACHE` at a temp file (conftest).
 - `pr7l/shell.py`: registry verbs "PR7-L" on `Directory` and `SystemFileAssociations\<ext>` (HKCU);
   `app.collect` merges the one-process-per-file launches into one window (PR7-Z's scheme).
 - `pr7l/settings.py`: typed QSettings getters (registry values come back as strings). Always

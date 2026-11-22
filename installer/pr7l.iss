@@ -59,3 +59,7 @@ Filename: "{app}\PR7-L.exe"; Description: "{cm:LaunchProgram,Paragon PR7-L}"; Fl
 
 [UninstallRun]
 Filename: "{app}\PR7-L.exe"; Parameters: "--unregister"; Flags: runhidden waituntilterminated; RunOnceId: "PR7LUnregister"
+
+[UninstallDelete]
+; The file cache (pr7l/cache.py): only what PR7-L read from your files, nothing of yours.
+Type: filesandordirs; Name: "{localappdata}\Paragon\PR7-L\cache"

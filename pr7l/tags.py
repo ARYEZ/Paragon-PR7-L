@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import base64
 import copy
+import hashlib
 import os
 import struct
 from dataclasses import dataclass, field
@@ -64,8 +65,27 @@ class Info:
 
 
 @dataclass
+class PictureMeta:
+    """What the list keeps of a picture: enough to show its details and tell pictures apart, not the image."""
+    type: int
+    mime: str
+    size: int
+    sha1: str
+    width: int = 0
+    height: int = 0
+
+
+def picture_meta(p: Picture) -> PictureMeta:
+    w, h = image_size(p.data)
+    return PictureMeta(p.type, p.mime, len(p.data), hashlib.sha1(p.data).hexdigest(), w, h)
+
+
+@dataclass
 class TagFile:
-    """One file as the grid sees it: its fields (name -> values), pictures and audio properties."""
+    """One file as the grid sees it: its fields (name -> values), pictures and audio properties.
+
+    A file in the list is kept `slim()`: its pictures' bytes are dropped (4000 covers can be gigabytes) and
+    `meta` describes them; `load_pictures()` reads them back from the file when they're needed."""
     path: str
     kind: str                                   # "ID3", "Vorbis", "MP4", "APE", "ASF"
     fields: dict[str, list[str]] = field(default_factory=dict)
@@ -74,6 +94,27 @@ class TagFile:
     tag_label: str = ""                         # Mp3tag's "Tag" column: "ID3v2.3", "ID3v1 ID3v2.4", "FLAC" ...
     size: int = 0
     mtime: float = 0.0
+    meta: list[PictureMeta] = field(default_factory=list)
+    pictures_loaded: bool = True
+
+    def slim(self) -> "TagFile":
+        self.meta = [picture_meta(p) for p in self.pictures] if self.pictures_loaded else self.meta
+        self.pictures = []
+        self.pictures_loaded = False
+        return self
+
+    def load_pictures(self) -> list[Picture]:
+        if not self.pictures_loaded:
+            try:
+                self.pictures = read(self.path).pictures
+            except (UnsupportedFile, OSError):
+                self.pictures = []
+            self.pictures_loaded = True
+        return self.pictures
+
+    def front_meta(self) -> PictureMeta | None:
+        metas = self.meta if not self.pictures_loaded else [picture_meta(p) for p in self.pictures]
+        return next((m for m in metas if m.type == FRONT), metas[0] if metas else None)
 
     def get(self, name: str) -> str:
         """The field as Mp3tag shows it: several values joined with '\\\\'."""

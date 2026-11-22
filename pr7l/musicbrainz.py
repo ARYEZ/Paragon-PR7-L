@@ -91,7 +91,8 @@ class Client:
 
     def _get(self, url: str, accept: str = "application/json") -> tuple[int, bytes]:
         headers = {"User-Agent": USER_AGENT, "Accept": accept}
-        for attempt in range(4):
+        waits = [2, 4, 8, 8]  # "slow down" (503): back off, as the API asks; shared networks hit it most
+        for attempt in range(len(waits) + 1):
             if url.startswith(API):
                 with self._lock:  # MusicBrainz: one request a second, from all our threads together
                     wait = self._last + self.pause - time.monotonic()
@@ -102,8 +103,8 @@ class Client:
                 status, body = self.fetch(url, headers)
             except OSError as e:
                 raise LookupFailed(f"Can't reach {urllib.parse.urlsplit(url).hostname}: {e}") from e
-            if status == 503 and attempt < 3:  # "slow down": wait and try again, as the API asks
-                time.sleep(self.pause * (attempt + 1.5))
+            if status == 503 and attempt < len(waits):
+                time.sleep(self.pause * waits[attempt])
                 continue
             return status, body
         return status, body
@@ -113,7 +114,8 @@ class Client:
         if status == 404:
             raise LookupFailed("MusicBrainz doesn't know that release.")
         if status != 200:
-            raise LookupFailed(f"MusicBrainz answered {status}.")
+            raise LookupFailed("MusicBrainz is busy (503): try again in a minute." if status == 503
+                               else f"MusicBrainz answered {status}.")
         try:
             return json.loads(body)
         except ValueError as e:

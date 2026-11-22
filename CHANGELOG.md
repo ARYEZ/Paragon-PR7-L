@@ -10,6 +10,13 @@
   by folder.
 - Format strings: Mp3tag's `%field%` placeholders, `%_filename%` and the other file placeholders, and its
   `$functions` (`$num $caps $left $right $mid $replace $regexp $if $if2 $ifgreater $meta` ... see `pr7l/script.py`).
+- **File cache**: what PR7-L reads from each file is kept (`%LOCALAPPDATA%\\Paragon\\PR7-L\\cache`), so a folder
+  opens from the cache next time and only new or changed files (by size and modification time) are read again.
+  F5 still reads everything again. Options: switch it off, or clear it. The uninstaller removes it.
+- The list no longer keeps every file's cover in memory, only its details and a fingerprint; the cover shown in
+  the panel is read when it's needed.
+- PR7-L reopens every folder that was open (Change Directory and the ones added), not just the first.
+- MusicBrainz "busy" (503) answers are retried for longer (2, 4, 8, 8 s) and then explained in words.
 - Fixed: tests wrote PR7-L's real settings; they now go to a temp folder like PR7-W's and PR7-Z's.
 
 ## 0.1.0
