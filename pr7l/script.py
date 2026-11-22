@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import os
 import re
+import time
 from dataclasses import dataclass
 
 from .tags import SEP
@@ -177,6 +178,8 @@ FUNCS = {
     "geql": lambda a, b: "1" if _int(a) >= _int(b) else "", "leql": lambda a, b: "1" if _int(a) <= _int(b) else "",
     "not": lambda x: "" if x else "1",
     "char": lambda n: chr(_int(n)) if 0 < _int(n) < 0x110000 else "",
+    "csv": lambda x: _csv(x),  # defined further down: looked up when called
+    "html": lambda x: x.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;"),
 }
 LAZY = {"if", "if2", "ifgreater", "iflonger", "and", "or", "replace", "meta", "meta_sep"}
 
@@ -184,10 +187,11 @@ LAZY = {"if", "if2", "ifgreater", "iflonger", "and", "or", "replace", "meta", "m
 class Context:
     """What placeholders read: a TagFile's fields and properties (or a plain dict, for tests)."""
 
-    def __init__(self, tf=None, counter: int = 0, fields: dict | None = None):
+    def __init__(self, tf=None, counter: int = 0, fields: dict | None = None, extra: dict | None = None):
         self.tf = tf
         self.counter = counter
         self.fields = fields if fields is not None else (tf.fields if tf is not None else {})
+        self.extra = extra or {}  # more placeholders: Export's %_total_files%, %_date% ...
 
     def values(self, name: str) -> list[str]:
         return self.fields.get(ALIASES.get(name, name), [])
@@ -200,6 +204,8 @@ class Context:
     def _special(self, name: str) -> str:
         if name == "_counter":
             return str(self.counter)
+        if name in self.extra:
+            return str(self.extra[name])
         tf = self.tf
         if tf is None:
             return ""
@@ -213,8 +219,23 @@ class Context:
             "_parent_directory": os.path.basename(os.path.dirname(folder)),
             "_length": fmt_length(tf.info.length), "_length_seconds": str(int(round(tf.info.length))),
             "_bitrate": str(round(tf.info.bitrate / 1000)) if tf.info.bitrate else "", "_codec": tf.info.codec,
-            "_tag": tf.tag_label,
+            "_tag": tf.tag_label, "_file_size": size_text(tf.size), "_file_size_bytes": str(tf.size),
+            "_file_mod_date": time.strftime("%Y-%m-%d %H:%M", time.localtime(tf.mtime)) if tf.mtime else "",
+            "_samplerate": str(tf.info.sample_rate or ""), "_channels": str(tf.info.channels or ""),
         }.get(name, "")
+
+
+def size_text(n: int) -> str:
+    if n >= 1 << 30:
+        return f"{n / (1 << 30):.2f} GB"
+    if n >= 1 << 20:
+        return f"{n / (1 << 20):.1f} MB"
+    return f"{n / 1024:.0f} KB"
+
+
+def _csv(x: str) -> str:
+    """A CSV cell for the ';' separated files Excel opens: quoted when it holds ; " or a line break."""
+    return '"' + x.replace('"', '""') + '"' if any(c in x for c in ';"\r\n') else x
 
 
 def _eval(nodes: list, ctx: Context) -> str:

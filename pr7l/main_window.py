@@ -400,7 +400,7 @@ class TagPanel(QScrollArea):
 MENUS = {
     "&File": [("Change &Directory...\tCtrl+D", "open_dir"), ("&Add Directory...\tCtrl+Shift+D", "add_dir"),
               ("&Refresh\tF5", "refresh"), "-", ("&Save Tag\tCtrl+S", "save"), ("Remo&ve Tag\tCtrl+R", "remove_tag"),
-              ("&Undo\tCtrl+Z", "undo"), "-", ("&Export...\tCtrl+E", None), ("Create &Playlist...\tCtrl+L", None),
+              ("&Undo\tCtrl+Z", "undo"), "-", ("&Export...\tCtrl+E", "export_files"), ("Create &Playlist...\tCtrl+L", "create_playlist"),
               "-", ("&Options...\tCtrl+O", "options"), "-", ("E&xit\tAlt+F4", "close")],
     "&Edit": [("Select &All\tCtrl+A", "select_all"), ("&Invert Selection", "invert_selection"), "-",
               ("&Copy Tag\tCtrl+C", "copy_tag"), ("&Paste Tag\tCtrl+V", "paste_tag"), "-",
@@ -821,6 +821,35 @@ class MainWindow(QMainWindow):
         if failed:
             QMessageBox.warning(self, "PR7-L", "These files couldn't be changed:\n\n" + "\n".join(failed[:20]))
         return len(failed)
+
+    # ---------------------------------------------------------------------------------------- export, playlist
+    def _list_files(self, title: str):
+        """The selection, in the list's order, or every file when nothing is selected."""
+        self._confirm_discard()
+        files = self.selected() or list(self.model.rows)
+        if not files:
+            QMessageBox.information(self, title, "Open a folder first.")
+        return files
+
+    def export_files(self):
+        from .export_dialog import ExportDialog
+        files = self._list_files("Export")
+        if not files:
+            return
+        dlg = ExportDialog(files, self)
+        self._dialog = dlg  # tests drive the open dialog
+        if dlg.exec():
+            self.status[3].setText(f"Exported {len(files)} file(s) to {os.path.basename(dlg.written)}")
+
+    def create_playlist(self):
+        from .export_dialog import PlaylistDialog
+        files = self._list_files("Create playlist")
+        if not files:
+            return
+        dlg = PlaylistDialog(files, self)
+        self._dialog = dlg
+        if dlg.exec():
+            self.status[3].setText(f"Playlist {os.path.basename(dlg.path)}: {len(files)} file(s)")
 
     # ---------------------------------------------------------------------------------------- actions
     def apply_actions(self, chosen: list[dict], files: list[TagFile] | None = None) -> int:

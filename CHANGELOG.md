@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.0
+
+- **Export** (Ctrl+E), as in Mp3tag: configurations in Mp3tag's export language (`$filename(csv,utf-8)`,
+  `$loop(...)`/`$loopend()`, nested loops per group, `$loop(x,1)` once per group, `%_total_files%` `%_total_time%`
+  `%_total_size%` `%_date%` ...), with an editor and a live preview. Comes with CSV (Excel), Text list, Album list
+  and HTML table. Output file, append, open afterwards. UTF-8 (with BOM, for Excel), UTF-16 or ANSI;
+  Windows line ends.
+- New in format strings: `$csv(x)` (a safe CSV cell) and `$html(x)`, `%_file_size%`, `%_file_size_bytes%`,
+  `%_file_mod_date%`, `%_samplerate%`, `%_channels%`.
+- **Create Playlist** (Ctrl+L): M3U of the selected files (or all) in the list's order, next to the first file;
+  name from a format string (`%_directory%`), extended `#EXTINF` lines, relative paths, `.m3u8` UTF-8 or
+  `.m3u` ANSI.
+
 ## 0.3.0
 
 - **Actions** (Alt+6), as in Mp3tag: named action groups, ticked and run in order on the selected files, kept between

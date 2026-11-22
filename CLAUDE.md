@@ -29,6 +29,9 @@ Python; explain the why of changes.
   `plan(actions, files)` runs them in memory per file and returns `Planned` (changes, `new` path for `_FILENAME`,
   `pictures`, `exports`). `apply_plan` saves tags first, then exports, then renames (Undo reverses renames first).
   `actions_dialog.py`: groups in the `action_groups` setting (JSON); the forms are built from `TYPES`.
+- `pr7l/export.py` (no Qt): Mp3tag export templates parsed into text + `_Loop` nodes (`$loop` sorts by its
+  expression; a loop holding a loop, or `$loop(x,1)`, runs per group); `write()` uses CRLF and a single BOM when
+  appending; `playlist()` builds M3U. `export_dialog.py`: configs in the `export_configs` setting (JSON dict).
 - `pr7l/cache.py`: SQLite cache of what `tags.read` gave (fields, info, picture *meta*), keyed by path, valid
   while size + `st_mtime_ns` match; bump `cache.VERSION` whenever reading changes. The window reads through
   `MainWindow._read` (cache, else read + store); rows are `slim()` (no picture bytes: `load_pictures()` on demand,
