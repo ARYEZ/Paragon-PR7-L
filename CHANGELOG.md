@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.0
+
+- **Filter** (View > Filter, F3), as in Mp3tag: a bar above the list; the list shows only matching files, and
+  every command (save, actions, converters, export, playlists ...) works on what's shown. Plain words search every
+  field and the file name; expressions: `HAS`, `IS`, `MATCHES` (regular expression), `PRESENT`, `MISSING`,
+  `GREATER`, `LESS`, `EQUAL`, with `AND`, `OR`, `NOT` and brackets; fields as `title` or `%title%`, quoted format
+  strings (`"$len(%title%)" GREATER 40`). Filters as you type; mistakes are explained without hiding anything;
+  Enter keeps it in the history. F3 / Esc / Close shows every file again.
+- New placeholder `%_covers%`: how many pictures a file has (`%_covers% MISSING` finds files without a cover).
+- Status bar: "4 of 9 file(s)" while filtering.
+
 ## 0.4.0
 
 - **Export** (Ctrl+E), as in Mp3tag: configurations in Mp3tag's export language (`$filename(csv,utf-8)`,

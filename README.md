@@ -5,7 +5,7 @@ PR7-W, the PR7 plugins): tag panel and cover on the left, the file grid on the r
 
 ![PR7-L](docs/screenshots/main_window.png)
 
-## What it does (0.4.0)
+## What it does (0.5.0)
 
 - **Every common format**: MP3, FLAC, Ogg Vorbis, Opus, M4A/MP4, WMA, WavPack, Monkey's Audio, Musepack,
   WAV, AIFF, TTA, DSF. Tags are read and written by [mutagen](https://github.com/quodlibet/mutagen); only the
@@ -28,12 +28,14 @@ PR7-W, the PR7 plugins): tag panel and cover on the left, the file grid on the r
   step. **Actions (Quick)** (Alt+7) for a one-off.
 - **Export** (Ctrl+E) with editable templates (CSV for Excel, text list, album list, HTML table, your own) and
   **Create Playlist** (Ctrl+L): M3U / M3U8, relative paths, `#EXTINF` lines.
+- **Filter** (F3): plain words, or `artist HAS beatles AND %year% LESS 1970`, `genre MISSING`,
+  `%_covers% MISSING` ...; everything else then works on the files shown.
 - **Fast reopening**: a file cache, so a big library is read once; afterwards only new or changed files are
   read (F5 reads everything again). The folders that were open come back when PR7-L starts.
 - **Explorer**: "PR7-L" on the right-click menu of folders and audio files.
 - **Finishes**: OBSIDIAN and AURORA (Options).
 
-Coming next: filter, Discogs. Those menu items are there but greyed out.
+Coming next: Discogs (its menu item is there, greyed out).
 
 ## Install
 

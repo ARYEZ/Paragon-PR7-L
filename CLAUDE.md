@@ -32,6 +32,9 @@ Python; explain the why of changes.
 - `pr7l/export.py` (no Qt): Mp3tag export templates parsed into text + `_Loop` nodes (`$loop` sorts by its
   expression; a loop holding a loop, or `$loop(x,1)`, runs per group); `write()` uses CRLF and a single BOM when
   appending; `playlist()` builds M3U. `export_dialog.py`: configs in the `export_configs` setting (JSON dict).
+- `pr7l/filter.py` (no Qt): Mp3tag's filter language -> a predicate on TagFile (plain words, or HAS/IS/MATCHES/
+  PRESENT/MISSING/GREATER/LESS/EQUAL with AND/OR/NOT). `FileModel.all_rows` holds every file, `rows` the shown ones
+  (what all commands use); `replace()` keeps an edited row shown until the filter changes.
 - `pr7l/cache.py`: SQLite cache of what `tags.read` gave (fields, info, picture *meta*), keyed by path, valid
   while size + `st_mtime_ns` match; bump `cache.VERSION` whenever reading changes. The window reads through
   `MainWindow._read` (cache, else read + store); rows are `slim()` (no picture bytes: `load_pictures()` on demand,

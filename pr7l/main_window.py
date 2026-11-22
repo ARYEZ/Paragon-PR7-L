@@ -46,12 +46,30 @@ COLUMNS = [
 
 
 class FileModel(QAbstractTableModel):
-    """The grid's rows as a plain Python list of TagFiles (Qt asks for each cell)."""
+    """The grid's rows as plain Python lists of TagFiles (Qt asks for each cell): `all_rows` is every file
+    loaded, `rows` the ones the filter (F3) lets through, which is what the grid shows and what every
+    command works on, as in Mp3tag."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.rows: list[TagFile] = []
+        self.all_rows: list[TagFile] = []
+        self.keep = None  # the filter: TagFile -> bool, or None for every file
         self.icon = file_icon("audio")
+
+    def _passes(self, t: TagFile) -> bool:
+        if self.keep is None:
+            return True
+        try:
+            return bool(self.keep(t))
+        except Exception:  # noqa: BLE001 - a format string that fails on one file just doesn't match it
+            return False
+
+    def set_filter(self, keep):
+        self.beginResetModel()
+        self.keep = keep
+        self.rows = [t for t in self.all_rows if self._passes(t)]
+        self.endResetModel()
 
     def rowCount(self, parent=QModelIndex()):
         return 0 if parent.isValid() else len(self.rows)
@@ -78,24 +96,97 @@ class FileModel(QAbstractTableModel):
 
     def set_rows(self, rows: list[TagFile]):
         self.beginResetModel()
-        self.rows = rows
+        self.all_rows = list(rows)
+        self.rows = [t for t in self.all_rows if self._passes(t)]
         self.endResetModel()
 
     def add_rows(self, rows: list[TagFile]):
-        if rows:
-            self.beginInsertRows(QModelIndex(), len(self.rows), len(self.rows) + len(rows) - 1)
-            self.rows.extend(rows)
+        self.all_rows.extend(rows)
+        shown = [t for t in rows if self._passes(t)]
+        if shown:
+            self.beginInsertRows(QModelIndex(), len(self.rows), len(self.rows) + len(shown) - 1)
+            self.rows.extend(shown)
             self.endInsertRows()
 
     def replace(self, row: int, t: TagFile):
+        """A shown file read again (saved, renamed): it stays where it is even if it no longer matches the
+        filter, so the file being edited doesn't vanish; the next change to the filter sorts that out."""
+        old = self.rows[row]
         self.rows[row] = t
+        for i, a in enumerate(self.all_rows):
+            if a is old:
+                self.all_rows[i] = t
+                break
         self.dataChanged.emit(self.index(row, 0), self.index(row, len(COLUMNS) - 1))
+
+    def remove(self, row: int):
+        self.beginRemoveRows(QModelIndex(), row, row)
+        t = self.rows.pop(row)
+        self.all_rows = [a for a in self.all_rows if a is not t]
+        self.endRemoveRows()
 
     def sort(self, column, order=Qt.AscendingOrder):
         _, text, key = COLUMNS[column]
         self.layoutAboutToBeChanged.emit()
-        self.rows.sort(key=key or (lambda t: text(t).lower()), reverse=order == Qt.DescendingOrder)
+        k = key or (lambda t: text(t).lower())
+        self.all_rows.sort(key=k, reverse=order == Qt.DescendingOrder)
+        self.rows.sort(key=k, reverse=order == Qt.DescendingOrder)
         self.layoutChanged.emit()
+
+
+class FilterBar(QWidget):
+    """View > Filter (F3): an expression or plain words; the list shows only the files that match."""
+
+    changed = Signal(str)
+    closed = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        from PySide6.QtCore import QTimer
+        from PySide6.QtWidgets import QHBoxLayout, QPushButton
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 6)
+        lab = QLabel("FILTER")
+        lab.setProperty("role", "field")
+        lay.addWidget(lab)
+        self.box = QComboBox()
+        self.box.setEditable(True)
+        self.box.setInsertPolicy(QComboBox.NoInsert)
+        self.box.lineEdit().setPlaceholderText('Words, or e.g.  artist HAS beatles AND %year% LESS 1970  ·  '
+                                               'genre MISSING  ·  NOT %_covers% PRESENT')
+        self.box.addItems([h for h in settings.get_list("filter_history") if isinstance(h, str)])
+        self.box.setCurrentIndex(-1)
+        self.box.editTextChanged.connect(lambda _t: self._timer.start())
+        self.box.lineEdit().returnPressed.connect(self.remember)
+        lay.addWidget(self.box, 1)
+        self.message = QLabel("")
+        self.message.setProperty("role", "error")
+        lay.addWidget(self.message)
+        close = QPushButton("Close")
+        close.setToolTip("Close the filter and show every file (F3, Esc)")
+        close.clicked.connect(self.closed.emit)
+        lay.addWidget(close)
+        self._timer = QTimer(self, singleShot=True, interval=250)  # wait for a pause in typing
+        self._timer.timeout.connect(lambda: self.changed.emit(self.box.currentText()))
+
+    def text(self) -> str:
+        return self.box.currentText()
+
+    def remember(self):
+        t = self.box.currentText().strip()
+        if t:
+            history = list(dict.fromkeys([t] + settings.get_list("filter_history")))[:20]
+            settings.set("filter_history", history)
+            if self.box.findText(t) < 0:
+                self.box.insertItem(0, t)
+        self._timer.stop()
+        self.changed.emit(self.box.currentText())
+
+    def keyPressEvent(self, e):
+        if e.key() == Qt.Key_Escape:
+            self.closed.emit()
+        else:
+            super().keyPressEvent(e)
 
 
 class FileView(QTreeView):
@@ -406,7 +497,7 @@ MENUS = {
               ("&Copy Tag\tCtrl+C", "copy_tag"), ("&Paste Tag\tCtrl+V", "paste_tag"), "-",
               ("Remove from &List\tDel", "remove_from_list")],
     "&View": [("&Tag Panel\tF6", "toggle_panel"), ("&Extended Tags...\tAlt+T", "extended_tags"), "-",
-              ("&Filter\tF3", None)],
+              ("&Filter\tF3", "toggle_filter")],
     "&Convert": [("&Tag - Filename\tAlt+1", "tag_to_filename"), ("&Filename - Tag\tAlt+2", "filename_to_tag"),
                  ("Te&xt file - Tag\tAlt+3", "text_to_tag"), ("Tag - T&ag\tAlt+5", "tag_to_tag"), "-",
                  ("Auto-&numbering Wizard...\tCtrl+K", "auto_number")],
@@ -494,6 +585,11 @@ class MainWindow(QMainWindow):
         self.view.selectionModel().selectionChanged.connect(self._selection_changed)
         self.view.dropped.connect(lambda paths: self.load(paths, add=True))
         self.view.doubleClicked.connect(lambda _i: self.panel.fields["TITLE"].setFocus())
+        self.filter_bar = FilterBar()
+        self.filter_bar.changed.connect(self.apply_filter)
+        self.filter_bar.closed.connect(self.toggle_filter)
+        self.filter_bar.setVisible(False)
+        rl.addWidget(self.filter_bar)
         rl.addWidget(self.view)
         self.split.addWidget(right)
         self.split.setStretchFactor(1, 1)
@@ -536,7 +632,7 @@ class MainWindow(QMainWindow):
         if not self._confirm_discard():
             return
         files = self._scan(paths)
-        have = {os.path.normcase(t.path) for t in self.model.rows} if add else set()
+        have = {os.path.normcase(t.path) for t in self.model.all_rows} if add else set()
         rows, failed, fresh = [], 0, 0
         self.read_count = 0
         for i, p in enumerate(files):
@@ -565,7 +661,8 @@ class MainWindow(QMainWindow):
             sources = settings.get_list("open_paths") + sources
         settings.set("open_paths", list(dict.fromkeys(sources)))
         self.status[3].setText(f"{failed} file(s) couldn't be read" if failed else
-                               f"{len(rows)} file(s), {self.read_count} read from disk, the rest from the cache"
+                               (f"{len(rows)} file(s), {self.read_count} read from disk, the rest from the cache"
+                                if self.read_count < len(rows) else f"{len(rows)} file(s) read")
                                if self.library and rows else "")
         self._selection_changed()
         self._update_title()
@@ -584,13 +681,13 @@ class MainWindow(QMainWindow):
         if not self._confirm_discard():
             return
         rows = []
-        for i, t in enumerate(self.model.rows):  # F5 reads every file again, cache or not (Mp3tag's Refresh)
+        for i, t in enumerate(self.model.all_rows):  # F5 reads every file again, cache or not (Mp3tag's Refresh)
             try:
                 rows.append(self._read(t.path, use_cache=False))
             except (tags.UnsupportedFile, OSError):
                 pass
             if i % 50 == 49:
-                self.status[3].setText(f"Reading {i + 1} of {len(self.model.rows)} ...")
+                self.status[3].setText(f"Reading {i + 1} of {len(self.model.all_rows)} ...")
                 QApplication.processEvents()
         if self.library:
             self.library.commit()
@@ -640,7 +737,9 @@ class MainWindow(QMainWindow):
         self.panel.show_files(files)
         shown = files or self.model.rows
         n = len(files)
-        self.status[0].setText(f"{n} file(s) selected" if n else f"{len(self.model.rows)} file(s)")
+        total, shown_n = len(self.model.all_rows), len(self.model.rows)
+        count = f"{shown_n} of {total} file(s)" if self.model.keep is not None else f"{total} file(s)"
+        self.status[0].setText(f"{n} file(s) selected" if n else count)
         self.status[1].setText(fmt_length(sum(t.info.length for t in shown)) or "0:00")
         size = sum(t.size for t in shown)
         self.status[2].setText(f"{size / 1048576:.1f} MB" if size >= 1048576 else f"{size / 1024:.0f} KB")
@@ -675,9 +774,7 @@ class MainWindow(QMainWindow):
         rows = self.selected_rows()
         self.panel.show_files([])
         for r in reversed(rows):
-            self.model.beginRemoveRows(QModelIndex(), r, r)
-            del self.model.rows[r]
-            self.model.endRemoveRows()
+            self.model.remove(r)
         self._selection_changed()
 
     # ---------------------------------------------------------------------------------------- writing
@@ -1038,6 +1135,36 @@ class MainWindow(QMainWindow):
         self.header.update()
         for w in self.findChildren(QWidget):
             w.update()
+
+    # ---------------------------------------------------------------------------------------- filter
+    def apply_filter(self, text: str):
+        from .filter import FilterError, compile_filter
+        try:
+            keep = compile_filter(text)
+        except FilterError as e:
+            self.filter_bar.message.setText(str(e))  # the list stays as it is until the filter makes sense
+            return
+        self.filter_bar.message.setText("")
+        self._confirm_discard()
+        self.model.set_filter(keep)
+        self._selection_changed()
+
+    def toggle_filter(self):
+        """F3: show the filter bar and put the cursor in it; again (or Close / Esc): hide it, show every file."""
+        if not self.filter_bar.isVisible():
+            self.filter_bar.setVisible(True)
+            self.filter_bar.box.setFocus()
+            self.filter_bar.box.lineEdit().selectAll()
+            if self.filter_bar.text().strip():
+                self.apply_filter(self.filter_bar.text())
+            return
+        self.filter_bar.setVisible(False)
+        self.filter_bar.message.setText("")
+        if self.model.keep is not None:
+            self._confirm_discard()
+            self.model.set_filter(None)
+            self._selection_changed()
+        self.view.setFocus()
 
     def toggle_panel(self):
         self.panel.setVisible(not self.panel.isVisible())

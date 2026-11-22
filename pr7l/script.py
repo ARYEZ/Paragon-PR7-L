@@ -222,7 +222,14 @@ class Context:
             "_tag": tf.tag_label, "_file_size": size_text(tf.size), "_file_size_bytes": str(tf.size),
             "_file_mod_date": time.strftime("%Y-%m-%d %H:%M", time.localtime(tf.mtime)) if tf.mtime else "",
             "_samplerate": str(tf.info.sample_rate or ""), "_channels": str(tf.info.channels or ""),
+            "_covers": _covers(tf),
         }.get(name, "")
+
+
+def _covers(tf) -> str:
+    """How many pictures the file has ('' when none, so %_covers% MISSING finds files without a cover)."""
+    n = len(tf.pictures) if getattr(tf, "pictures_loaded", True) else len(tf.meta)
+    return str(n) if n else ""
 
 
 def size_text(n: int) -> str:

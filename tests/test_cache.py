@@ -92,7 +92,7 @@ def test_second_open_reads_only_what_changed(qapp, folder, monkeypatch, tmp_path
     calls = counted(monkeypatch)
     w = open_window(folder)
     assert len(calls) == 5 and len(w.model.rows) == 5
-    assert "5 read from disk" in w.status[3].text()
+    assert w.status[3].text() == "5 file(s) read"
     w.close()
     calls.clear()
     w = open_window(folder)                       # again: everything from the cache
