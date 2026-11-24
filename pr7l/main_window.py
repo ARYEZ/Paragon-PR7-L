@@ -508,7 +508,7 @@ MENUS = {
                      ("&Cover Art Archive (cover only)...", "cover_only")],
     "E&xtras": [("&Add Cover...", "add_cover"), ("E&xtract Cover...", "extract_cover"),
                 ("&Resize Cover...", "resize_cover"), ("Re&move Cover", "remove_cover")],
-    "&Help": [("&About PR7-L...", "about")],
+    "&Help": [("Check for &updates...", "check_updates"), "-", ("&About PR7-L...", "about")],
 }
 TOOLBAR_SLOTS = {"opendir": "open_dir", "adddir": "add_dir", "save": "save", "removetag": "remove_tag",
                  "undo": "undo", "musicbrainz": "musicbrainz", "cover": "cover_only", "tag2file": "tag_to_filename",
@@ -1199,6 +1199,10 @@ class MainWindow(QMainWindow):
 
     def toggle_panel(self):
         self.panel.setVisible(not self.panel.isVisible())
+
+    def check_updates(self):
+        from . import update_ui
+        update_ui.check(self)
 
     def about(self):
         QMessageBox.about(self, "About PR7-L",

@@ -56,6 +56,8 @@ Name: "{autodesktop}\Paragon PR7-L"; Filename: "{app}\PR7-L.exe"; Tasks: desktop
 Filename: "{app}\PR7-L.exe"; Parameters: "--register"; Tasks: contextmenu; Flags: runhidden waituntilterminated; StatusMsg: "Adding ""PR7-L"" to Explorer..."
 Filename: "{app}\PR7-L.exe"; Parameters: "--unregister"; Tasks: not contextmenu; Flags: runhidden waituntilterminated
 Filename: "{app}\PR7-L.exe"; Description: "{cm:LaunchProgram,Paragon PR7-L}"; Flags: nowait postinstall skipifsilent
+; Updates (Check for Updates runs this installer with /SILENT /relaunch=1): start PR7-L again when done.
+Filename: "{app}\PR7-L.exe"; Flags: nowait runasoriginaluser; Check: Relaunch
 
 [UninstallRun]
 Filename: "{app}\PR7-L.exe"; Parameters: "--unregister"; Flags: runhidden waituntilterminated; RunOnceId: "PR7LUnregister"
@@ -63,3 +65,10 @@ Filename: "{app}\PR7-L.exe"; Parameters: "--unregister"; Flags: runhidden waitun
 [UninstallDelete]
 ; The file cache (pr7l/cache.py): only what PR7-L read from your files, nothing of yours.
 Type: filesandordirs; Name: "{localappdata}\Paragon\PR7-L\cache"
+
+[Code]
+// True only when the updater asked for it (/relaunch=1): normal and CI installs behave as before.
+function Relaunch: Boolean;
+begin
+  Result := ExpandConstant('{param:relaunch|0}') = '1';
+end;

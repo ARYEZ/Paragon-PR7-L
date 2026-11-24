@@ -115,6 +115,8 @@ def main(argv: list[str] | None = None) -> int:
         app.setWindowIcon(QIcon(icon))
     w = MainWindow(paths)
     w.show()
+    from . import update_ui
+    update_ui.start(w)  # a check for updates, once a day
     return app.exec()
 
 

@@ -52,6 +52,8 @@ Python; explain the why of changes.
   permanent). CI installs it silently, runs `tools/verify_install.py installed` (which also runs the installed
   exe with `--dump` on every test format), uninstalls, `... uninstalled`.
 
+- Updates: `pr7l/updates.py` (no Qt; GitHub's public releases/latest, User-Agent names only the app, installer asset `PR7-L-Setup-*.exe`, run with /SILENT /relaunch=1) and `update_ui.py` (once-a-day check from app.py, the menu's Check for Updates, UpdateDialog; settings updates/auto|last|skip; `notify` for tests). The installer's [Code] Relaunch starts PR7-L again only for /relaunch=1. Same files in every family app (PR7-W's update_ui imports PyQt6): keep them in step.
+
 ## The look (family rules)
 
 - Theme is PR7-W's (OBSIDIAN + AURORA via `theme.set_finish`), in PySide6. Colours: the family's only (hues
