@@ -22,3 +22,7 @@ def qapp(tmp_path_factory):
     theme.load_fonts()
     app.setStyleSheet(theme.stylesheet())
     yield app
+    # Qt's offscreen platform crashes at exit if something is left on its clipboard (the cover tests copy
+    # pictures there): clear it while Qt is still up.
+    app.clipboard().clear()
+    app.processEvents()
