@@ -31,7 +31,12 @@ jobs:
           QT_QPA_PLATFORM: offscreen
           PR7L_LIVE: "1"
           DISCOGS_TOKEN: ${{ secrets.DISCOGS_TOKEN }}  # optional: without it the live Discogs test is skipped
-        run: python -m pytest -q -rs
+        run: |
+          $env:PYTHONFAULTHANDLER = "1"   # a crash, even at exit, prints where it happened
+          python -m pytest -q -rs
+          $code = $LASTEXITCODE
+          Write-Host "pytest exit code: $code"
+          exit $code
       - name: Build PR7-L.exe
         run: pyinstaller --noconfirm pr7l.spec
       - name: Check the build

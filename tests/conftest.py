@@ -22,7 +22,13 @@ def qapp(tmp_path_factory):
     theme.load_fonts()
     app.setStyleSheet(theme.stylesheet())
     yield app
-    # Qt's offscreen platform crashes at exit if something is left on its clipboard (the cover tests copy
-    # pictures there): clear it while Qt is still up.
+    # End cleanly, so Qt never shuts down under running work: the tag-source lookups (QThreadPool, live MusicBrainz
+    # in CI) finish first; windows left open close; the clipboard is cleared (Qt's offscreen platform crashes at exit
+    # if the cover tests left a picture there).
+    from PySide6.QtCore import QThreadPool
+    QThreadPool.globalInstance().waitForDone(15000)
+    for w in app.topLevelWidgets():
+        w.close()
+        w.deleteLater()
     app.clipboard().clear()
     app.processEvents()
