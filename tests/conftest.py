@@ -6,6 +6,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+os.environ["PARAGON_FAMILY_FILE"] = os.path.join(__import__("tempfile").mkdtemp(prefix="family-"), "finish")  # never the real choice
 # Tests never use the real file cache either.
 os.environ["PR7L_CACHE"] = os.path.join(__import__("tempfile").mkdtemp(prefix="pr7l-cache-"), "library.sqlite")
 

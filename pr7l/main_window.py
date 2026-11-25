@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QFile
                                QHeaderView, QInputDialog, QLabel, QLineEdit, QMainWindow, QMenu, QMessageBox, QScrollArea,
                                QSplitter, QStatusBar, QTreeView, QVBoxLayout, QWidget)
 
+from . import finish
 from . import __version__, settings, tags, theme
 from .musicbrainz import fmt_length
 from .tags import SEP, TagFile
@@ -1158,6 +1159,7 @@ class MainWindow(QMainWindow):
 
     def set_finish(self, name: str):
         theme.set_finish(name)
+        finish.set(theme.FINISH)                 # every family app follows (finish.py)
         app = QApplication.instance()
         app.setPalette(theme.palette())
         app.setStyleSheet(theme.stylesheet())
